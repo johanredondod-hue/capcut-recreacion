@@ -67,7 +67,7 @@ function trackRow(tr) {
   return row;
 }
 function clipEl(c, tr) {
-  const el = document.createElement('div'), w = Math.max(4, dur(c) * S.zoom), sel = c.id === S.sel, th = trackH(tr) - 6;
+  const el = document.createElement('div'), w = Math.max(4, dur(c) * S.zoom), sel = isSelected(c.id), th = trackH(tr) - 6;
   el.className = `clip k-${c.kind}${sel ? ' sel' : ''}${tr.lock ? ' locked' : ''}${tr.hide ? ' hidden-track' : ''}`;
   el.dataset.id = c.id; el.style.left = c.start * S.zoom + 'px'; el.style.width = w + 'px';
   const m = c.mediaId && med(c.mediaId); let h = '';
@@ -89,7 +89,7 @@ function clipEl(c, tr) {
   let label;
   switch (c.kind) {
     case 'text': label = `${ic('text')}${esc(String(c.text).replace(/\n/g, ' '))}`; break;
-    case 'sticker': label = `${esc(c.text)} <em>Sticker</em>`; break;
+    case 'sticker': label = c.shape ? `${ic('effects')}${esc(c.name)}` : `${esc(c.text)} <em>Sticker</em>`; break;
     case 'effect': label = `${ic('effects')}${esc(c.name)}`; break;
     case 'filter': label = `${ic('filters')}${esc(c.name)}`; break;
     case 'adjust': label = `${ic('adjust')}${esc(c.name)}`; break;
@@ -97,8 +97,9 @@ function clipEl(c, tr) {
     default: label = `${c.detached || c.volume === 0 ? ic('mute') : ''}${esc(c.name)} <em>${fmtDur(dur(c))}</em>`;
   }
   h += `<div class="clabel${isTextLike(c) || isFxLike(c) ? ' mid' : ''}">${label}</div>`;
-  if (c.curve) h += '<span class="spd">Curva</span>'; else if (c.speed && c.speed !== 1) h += `<span class="spd">${+c.speed.toFixed(2)}x</span>`;
-  if (sel) for (const t of kfTimes(c)) h += `<i class="kfd" style="left:${t * S.zoom}px"></i>`;
+  const badge = [c.reversed ? 'Reversa' : '', c.obj && c.obj.track ? 'Seguimiento' : '', c.follow ? 'Sigue' : '', c.curve ? 'Curva' : (c.speed && c.speed !== 1 ? `${+c.speed.toFixed(2)}x` : '')].filter(Boolean).join(' · ');
+  if (badge) h += `<span class="spd">${badge}</span>`;
+  if (c.id === S.sel) for (const t of kfTimes(c)) h += `<i class="kfd" style="left:${t * S.zoom}px"></i>`;
   if (c.beats) for (const b of c.beats) { const x = (tlTimeOf(c, b) - c.start) * S.zoom; if (x >= 0 && x <= w) h += `<i class="beat" style="left:${x}px"></i>`; }
   h += '<div class="h l" data-h="l"></div><div class="h r" data-h="r"></div>';
   el.innerHTML = h;
@@ -158,12 +159,66 @@ function fitZoom() { const T = total(); if (!T) return; setZoom((tl.scroll.clien
 
 /* ---------- Selección ---------- */
 function selectClip(id, soft) {
-  S.sel = id; S.selTrans = null;
+  if (S.cropMode && S.cropMode !== id) S.cropMode = null;
+  S.sel = id; S.selTrans = null; S.msel = [];
   if (S.ptabName == null) S.ptab = 0;
   if (soft) $$('.clip', tl.rows).forEach(e => e.classList.toggle('sel', e.dataset.id === id));
   else renderTL();
   renderProps(); renderMbar(); updTools(); invalidate();
   if (['effects', 'transitions', 'filters'].includes(S.tab)) renderLib();
+}
+/* Selección múltiple: añade o quita un clip */
+function toggleSel(id) {
+  let ids = selIds();
+  ids = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+  S.msel = ids.length > 1 ? ids : []; S.sel = ids[ids.length - 1] || null; S.selTrans = null; S.cropMode = null;
+  renderTL(); renderProps(); renderMbar(); updTools(); invalidate();
+}
+/* Arrastrar en una zona vacía dibuja un recuadro de selección; un clic mueve el cabezal */
+function startMarquee(e) {
+  const x0 = e.clientX, y0 = e.clientY, additive = e.shiftKey || e.ctrlKey || e.metaKey, base = additive ? selIds() : [];
+  let box = null, ids = base;
+  const mv = ev => {
+    if (!box && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+    if (!box) { box = document.createElement('div'); box.className = 'marquee'; tl.inner.appendChild(box); }
+    const r = tl.inner.getBoundingClientRect(), L = Math.min(x0, ev.clientX), R = Math.max(x0, ev.clientX), T = Math.min(y0, ev.clientY), B = Math.max(y0, ev.clientY);
+    Object.assign(box.style, { left: (L - r.left) + 'px', top: (T - r.top) + 'px', width: (R - L) + 'px', height: (B - T) + 'px' });
+    ids = [...base];
+    for (const el of $$('.clip', tl.rows)) { const b = el.getBoundingClientRect(); if (b.right > L && b.left < R && b.bottom > T && b.top < B && !ids.includes(el.dataset.id)) ids.push(el.dataset.id); }
+    $$('.clip', tl.rows).forEach(el => el.classList.toggle('sel', ids.includes(el.dataset.id)));
+  };
+  const up = ev => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    if (!box) { if (!additive && (S.sel || S.msel.length || S.selTrans)) selectClip(null); pause(); seek(xToTime(ev.clientX)); return; }
+    box.remove();
+    S.msel = ids.length > 1 ? ids : []; S.sel = ids[ids.length - 1] || null; S.selTrans = null;
+    renderTL(); renderProps(); renderMbar(); updTools(); invalidate();
+    if (ids.length > 1) toast(`${ids.length} clips seleccionados`);
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+/* Mover varios clips juntos */
+function startGroupDrag(e, primary) {
+  const list = S.msel.map(clipById).filter(k => k && !trackById(k.trackId)?.lock && !(k.trackId === 'main' && S.magnet));
+  if (!list.length) { toast('Los clips de la pista principal magnética se reordenan de uno en uno'); return; }
+  e.preventDefault();
+  const x0 = e.clientX, orig = new Map(list.map(k => [k.id, k.start])), before = snapshot(), ids = new Set(list.map(k => k.id));
+  const cands = [0, S.t, ...S.markers]; S.clips.forEach(o => { if (!ids.has(o.id)) cands.push(o.start, endOf(o)); });
+  const minStart = Math.min(...orig.values()), ref = orig.get(primary.id) ?? minStart, refDur = orig.has(primary.id) ? dur(primary) : 0;
+  let moved = false, dd = 0;
+  const mv = ev => {
+    const px = ev.clientX - x0; if (!moved && Math.abs(px) < 4) return; moved = true;
+    const d = Math.max(px / S.zoom, -minStart); dd = snapTime(ref + d, refDur, cands) - ref;
+    for (const el of $$('.clip', tl.rows)) if (ids.has(el.dataset.id)) { el.classList.add('dragging'); el.style.transform = `translateX(${dd * S.zoom}px)`; }
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tl.snap.style.display = 'none';
+    if (!moved) { renderTL(); return; }
+    for (const k of list) { k.start = Math.max(0, orig.get(k.id) + dd); if (k.trackId !== 'main' && !isFree(k.trackId, k.start, endOf(k), k.id)) placeClip(k, k.trackId); }
+    if (!S.magnet) sortMainByStart();
+    pushBefore(before); afterChange();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
 }
 function selectTrans(id) {
   S.selTrans = id; S.sel = null; renderTL(); renderProps(); renderMbar(); updTools(); invalidate();
@@ -216,7 +271,9 @@ const rulerTime = cx => (cx - tl.rulerWrap.getBoundingClientRect().left + tl.scr
 function startClipDrag(e, el) {
   const c = clipById(el.dataset.id); if (!c) return;
   const tr = trackById(c.trackId), handle = e.target.dataset.h, touch = e.pointerType !== 'mouse', wasSel = S.sel === c.id;
-  if (!wasSel) selectClip(c.id, true);
+  if ((!touch && (e.shiftKey || e.ctrlKey || e.metaKey)) || (touch && S.multiMode)) { toggleSel(c.id); return; }
+  if (!handle && S.msel.length > 1 && S.msel.includes(c.id)) { startGroupDrag(e, c); return; }
+  if (!wasSel || S.msel.length) selectClip(c.id, true);
   if (tr && tr.lock) return;
   if (touch && !wasSel && !handle) { renderTL(); return; }          // táctil: primero se toca para seleccionar
   e.preventDefault();
@@ -304,9 +361,13 @@ function clipMenu(c, x, y) {
     vis ? ['Reemplazar clip…', '', () => { S._replace = c.id; $('#replaceIn').click(); }] : null,
     c.kind === 'video' ? ['Separar audio', '', () => extractAudio(c)] : null,
     c.kind === 'video' ? ['Congelar fotograma', '', freezeFrame] : null,
+    c.kind === 'video' ? ['Reproducir en reversa', '', () => reverseClip(c)] : null,
+    vis ? ['Recortar en pantalla', '', () => { selectClip(c.id); setCropMode(true); openPropsTab('Video', 'crop'); }] : null,
+    vis ? ['Seleccionar objeto (IA)…', '', () => startPickObject(c)] : null,
     vis ? (c.trackId === 'main' ? ['Mover a superposición', '', () => toOverlay(c)] : ['Mover a pista principal', '', () => toMain(c)]) : null,
     hasAudio(c) ? ['Detectar ritmo', '', () => detectBeats(c)] : null,
-    ['Restablecer', '', () => resetClip(c)]
+    ['Restablecer', '', () => resetClip(c)], '-',
+    ['Seleccionar todo', 'Ctrl+A', selectAll]
   ];
   showMenu($('#ctxMenu'), x, y, items);
 }
@@ -322,7 +383,9 @@ const TL_TOOLS = [
   ['tFreeze', 'freeze', 'Congelar fotograma', () => freezeFrame()],
   ['tMirror', 'mirror', 'Espejo', () => quickVis(c => { c.flipH = !c.flipH; })],
   ['tRotate', 'rotate', 'Girar 90°', () => quickVis(c => { c.rot = ((c.rot || 0) + 90) % 360; if (c.rot > 180) c.rot -= 360; })],
-  ['tCrop', 'crop', 'Recortar', () => openPropsTab('Video', 'crop')],
+  ['tCrop', 'crop', 'Recortar en pantalla', () => { setCropMode(!S.cropMode); if (S.cropMode) openPropsTab('Video', 'crop'); }],
+  ['tReverse', 'reverse', 'Reproducir en reversa', () => reverseClip()],
+  ['tObj', 'target', 'Seleccionar objeto (IA)', () => startPickObject()],
   ['tDetach', 'detach', 'Separar audio', () => extractAudio()],
   ['tMarker', 'marker', 'Añadir marcador (M)', () => addMarker()], '|', 'grow',
   ['tRec', 'mic', 'Grabar voz en off', () => toggleRecord()],
@@ -347,6 +410,8 @@ function updTools() {
   set('tUndo', !HIST.undo.length); set('tRedo', !HIST.redo.length); set('mUndo', !HIST.undo.length); set('mRedo', !HIST.redo.length);
   set('tDel', !c && !S.selTrans); set('tMirror', !vis); set('tRotate', !vis); set('tCrop', !(c && isVisual(c)));
   set('tFreeze', !mains().some(x => x.kind === 'video')); set('tDetach', !(c && c.kind === 'video'));
+  set('tReverse', !(c && c.kind === 'video')); set('tObj', !(c && isVisual(c)));
+  $('#tCrop')?.classList.toggle('on', !!S.cropMode);
   $('#tMagnet')?.classList.toggle('on', S.magnet); $('#tSnap')?.classList.toggle('on', S.snap);
   $('#tRec')?.classList.toggle('rec', !!S.recording);
 }
@@ -359,7 +424,7 @@ function initTimeline() {
     hideMenus();
     const j = e.target.closest('[data-junction]'); if (j) { selectTrans(j.dataset.junction); return; }
     const cl = e.target.closest('.clip'); if (cl) { startClipDrag(e, cl); return; }
-    if (e.pointerType === 'mouse') { if (S.sel || S.selTrans) selectClip(null); startScrub(e, xToTime); }
+    if (e.pointerType === 'mouse') { startMarquee(e); }
     else { const x0 = e.clientX, y0 = e.clientY; tl.scroll.addEventListener('pointerup', ev => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6 && (S.sel || S.selTrans)) selectClip(null); }, { once: true }); }
   });
   tl.scroll.addEventListener('contextmenu', e => {
@@ -398,7 +463,8 @@ function initTimeline() {
   tl.scroll.addEventListener('drop', e => {
     e.preventDefault(); e.stopPropagation(); $$('.trow.over', tl.rows).forEach(r => r.classList.remove('over'));
     const t = Math.max(0, xToTime(e.clientX)), row = rowAt(e.clientY);
-    if (e.dataTransfer.files.length) return importFiles(e.dataTransfer.files, { addToTimeline: true, start: t });
+    const toAudio = row && ((row.type === 'track' && row.tr.kind === 'audio') || row.type === 'down');
+    if (e.dataTransfer.files.length) return toAudio ? audioFromVideoFiles(e.dataTransfer.files, t) : importFiles(e.dataTransfer.files, { addToTimeline: true, start: t });
     const m = med(e.dataTransfer.getData('text/mid')); if (!m) return;
     if (m.type === 'audio') return addMediaClip(m, { start: t, trackId: row && row.tr && row.tr.kind === 'audio' ? row.tr.id : null });
     if (row && ((row.type === 'track' && !row.tr.main) || row.type === 'up')) return addMediaClip(m, { start: t, overlay: true, trackId: row.tr && row.tr.kind === 'video' ? row.tr.id : null });

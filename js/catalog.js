@@ -36,7 +36,13 @@ const FILTERS = [
   { id: 'bw', name: 'B/N', cat: 'B/N', css: 'grayscale(1) contrast(1.1)' },
   { id: 'noir', name: 'Noir', cat: 'B/N', css: 'grayscale(1) contrast(1.5) brightness(.9)' },
   { id: 'silver', name: 'Plata', cat: 'B/N', css: 'grayscale(1) brightness(1.15) contrast(.9)' },
-  { id: 'neg', name: 'Negativo', cat: 'B/N', css: 'invert(1)' }
+  { id: 'neg', name: 'Negativo', cat: 'B/N', css: 'invert(1)' },
+  { id: 'hicon', name: 'B/N intenso', cat: 'B/N', css: 'grayscale(1) contrast(2) brightness(1.05)' },
+  { id: 'cyber', name: 'Cyberpunk', cat: 'Cine', css: 'hue-rotate(-30deg) saturate(1.8) contrast(1.2)', pro: true },
+  { id: 'matrix', name: 'Matrix', cat: 'Cine', css: 'sepia(1) hue-rotate(60deg) saturate(2.2) brightness(.9) contrast(1.2)' },
+  { id: 'amber', name: 'Ámbar', cat: 'Vida', css: 'sepia(.6) saturate(1.8) hue-rotate(-12deg) brightness(1.05)' },
+  { id: 'lavender', name: 'Lavanda', cat: 'Retrato', css: 'sepia(.3) hue-rotate(220deg) saturate(1.2) brightness(1.08)' },
+  { id: 'seventies', name: 'Años 70', cat: 'Retro', css: 'sepia(.5) saturate(1.6) contrast(.85) brightness(1.1) hue-rotate(-8deg)', pro: true }
 ];
 const FILTER_MAP = Object.fromEntries(FILTERS.map(f => [f.id, f]));
 
@@ -62,7 +68,16 @@ const EFFECTS = [
   { id: 'film', name: 'Película antigua', cat: 'Retro', bg: 'linear-gradient(135deg,#a8844a,#3a2a14)', pro: true },
   { id: 'scan', name: 'Líneas de escaneo', cat: 'Retro', bg: 'repeating-linear-gradient(#456 0 2px,#123 2px 4px)' },
   { id: 'glitch', name: 'Fallo', cat: 'Distorsión', bg: 'linear-gradient(90deg,#f0f 0 30%,#0ff 30% 60%,#222 60%)', pro: true },
-  { id: 'rgb', name: 'Separación RGB', cat: 'Distorsión', bg: 'linear-gradient(90deg,#f33,#3f3,#33f)' }
+  { id: 'rgb', name: 'Separación RGB', cat: 'Distorsión', bg: 'linear-gradient(90deg,#f33,#3f3,#33f)' },
+  { id: 'rain', name: 'Lluvia', cat: 'Básicos', bg: 'repeating-linear-gradient(100deg,#9bd 0 1px,#234 1px 9px)' },
+  { id: 'snow', name: 'Nieve', cat: 'Fiesta', bg: 'radial-gradient(circle at 20% 30%,#fff 0 4%,transparent 5%),radial-gradient(circle at 70% 60%,#fff 0 3%,transparent 4%),#3a4a6a' },
+  { id: 'hearts', name: 'Corazones', cat: 'Fiesta', bg: 'radial-gradient(circle at 35% 45%,#ff4d7d 0 14%,transparent 15%),radial-gradient(circle at 65% 45%,#ff4d7d 0 14%,transparent 15%),#3a1a2a', pro: true },
+  { id: 'bokeh', name: 'Luces bokeh', cat: 'Luz', bg: 'radial-gradient(circle at 30% 40%,rgba(255,200,120,.8) 0 12%,transparent 13%),radial-gradient(circle at 70% 60%,rgba(120,200,255,.7) 0 16%,transparent 17%),#1a1a2a' },
+  { id: 'kaleido', name: 'Caleidoscopio', cat: 'Distorsión', bg: 'conic-gradient(#f4a,#4af,#fa4,#f4a,#4af,#fa4,#f4a)', pro: true },
+  { id: 'pixel', name: 'Pixelado', cat: 'Distorsión', bg: 'conic-gradient(#4a8 0 25%,#8a4 0 50%,#48a 0 75%,#a84 0) 0 0/14px 14px' },
+  { id: 'duotone', name: 'Duotono', cat: 'Retro', bg: 'linear-gradient(135deg,#ff2f8e,#2a1cff)' },
+  { id: 'zoomburst', name: 'Ráfaga de zoom', cat: 'Distorsión', bg: 'repeating-radial-gradient(circle,#579 0 4px,#123 4px 10px)', pro: true },
+  { id: 'ghost', name: 'Eco fantasma', cat: 'Distorsión', bg: 'linear-gradient(90deg,#5a8 30%,rgba(90,170,140,.4) 30% 60%,rgba(90,170,140,.15) 60%)' }
 ];
 const EFFECT_MAP = Object.fromEntries(EFFECTS.map(e => [e.id, e]));
 
@@ -88,7 +103,15 @@ const TRANSITIONS = [
   { id: 'glitch', name: 'Fallo', cat: 'Efectos', pro: true },
   { id: 'circle', name: 'Círculo', cat: 'Formas' },
   { id: 'blinds', name: 'Persiana', cat: 'Formas', pro: true },
-  { id: 'diag', name: 'Diagonal', cat: 'Formas' }
+  { id: 'diag', name: 'Diagonal', cat: 'Formas' },
+  { id: 'clock', name: 'Reloj', cat: 'Formas' },
+  { id: 'doors', name: 'Puertas', cat: 'Formas' },
+  { id: 'heart', name: 'Corazón', cat: 'Formas', pro: true },
+  { id: 'splitV', name: 'Dividir', cat: 'Movimiento' },
+  { id: 'bounceIn', name: 'Rebote', cat: 'Movimiento' },
+  { id: 'cube', name: 'Cubo 3D', cat: 'Efectos', pro: true },
+  { id: 'pixelate', name: 'Pixelar', cat: 'Efectos' },
+  { id: 'zoomblur', name: 'Zoom borroso', cat: 'Efectos', pro: true }
 ];
 const TRANS_MAP = Object.fromEntries(TRANSITIONS.map(t => [t.id, t]));
 
@@ -111,7 +134,10 @@ const TEXT_STYLES = [
   { name: 'Caja roja', s: { bold: true, color: '#ffffff', bgOn: true, bg: '#ff2a4f', bgA: 1 } },
   { name: 'Sombra', s: { bold: true, shadowOn: true, shadow: '#000000' } },
   { name: 'Título', s: { font: 'Georgia', size: 90, bold: true, strokeOn: true, stroke: '#000000', strokeW: 5 } },
-  { name: 'Impacto', s: { font: 'Impact', size: 84, color: '#ffffff', strokeOn: true, stroke: '#ff2a4f', strokeW: 8 }, pro: true }
+  { name: 'Impacto', s: { font: 'Impact', size: 84, color: '#ffffff', strokeOn: true, stroke: '#ff2a4f', strokeW: 8 }, pro: true },
+  { name: 'Degradado', s: { bold: true, size: 70, color: '#ffd400', gradOn: true, grad2: '#ff2a8a' } },
+  { name: 'Arcoíris', s: { font: 'Impact', size: 80, color: '#00e5ff', gradOn: true, grad2: '#c03cff', strokeOn: true, stroke: '#ffffff', strokeW: 5 }, pro: true },
+  { name: 'Curvo', s: { bold: true, size: 56, arc: 45, strokeOn: true, stroke: '#000000', strokeW: 5 } }
 ];
 const TEXT_TEMPLATES = [
   { name: 'Título épico', text: 'TÍTULO ÉPICO', s: { font: 'Impact', size: 110, strokeOn: true, stroke: '#000000', strokeW: 8 }, anim: { in: 'zoomOut', out: 'fade', loop: 'none' }, bg: 'linear-gradient(135deg,#222,#555)' },
@@ -121,7 +147,11 @@ const TEXT_TEMPLATES = [
   { name: 'Oferta', text: '-50% HOY', s: { font: 'Impact', size: 96, color: '#ffde00', strokeOn: true, stroke: '#000000', strokeW: 8 }, anim: { in: 'spin', out: 'zoomIn', loop: 'swing' }, bg: 'linear-gradient(135deg,#a50,#f80)' },
   { name: 'Cita', text: '"Crea sin límites"', s: { font: 'Georgia', italic: true, size: 58, shadowOn: true, shadow: '#000000' }, anim: { in: 'slideU', out: 'fade', loop: 'none' }, bg: 'linear-gradient(135deg,#2a2a2a,#4a3a2a)' },
   { name: 'Gaming', text: 'GAME OVER', s: { font: 'Impact', size: 100, color: '#7dff5a', glowOn: true, glow: '#2aff00' }, anim: { in: 'zoomIn', out: 'fade', loop: 'flicker' }, bg: 'linear-gradient(135deg,#031,#142)', pro: true },
-  { name: 'Boda', text: 'Ana & Luis', s: { font: 'Brush Script MT', size: 96, color: '#fff5e6', shadowOn: true, shadow: '#5a3a1a' }, anim: { in: 'fade', inD: 1.2, out: 'fade', loop: 'none' }, bg: 'linear-gradient(135deg,#5a4030,#c8a888)' }
+  { name: 'Boda', text: 'Ana & Luis', s: { font: 'Brush Script MT', size: 96, color: '#fff5e6', shadowOn: true, shadow: '#5a3a1a' }, anim: { in: 'fade', inD: 1.2, out: 'fade', loop: 'none' }, bg: 'linear-gradient(135deg,#5a4030,#c8a888)' },
+  { name: 'Noticia', text: 'ÚLTIMA HORA', s: { bold: true, size: 54, color: '#ffffff', bgOn: true, bg: '#d80027', bgA: 1, bgR: 0 }, anim: { in: 'slideR', out: 'slideL', loop: 'none' }, bg: 'linear-gradient(135deg,#600,#d80027)' },
+  { name: 'Degradado pop', text: '¡WOW!', s: { font: 'Impact', size: 130, color: '#ffe600', gradOn: true, grad2: '#ff2a8a', strokeOn: true, stroke: '#ffffff', strokeW: 6 }, anim: { in: 'bounce', out: 'zoomIn', loop: 'swing' }, bg: 'linear-gradient(135deg,#ff2a8a,#ffe600)', pro: true },
+  { name: 'Arco', text: 'MIS VACACIONES', s: { bold: true, size: 60, arc: 55, strokeOn: true, stroke: '#000000', strokeW: 5 }, anim: { in: 'fade', out: 'fade', loop: 'float' }, bg: 'linear-gradient(135deg,#0a6,#06a)' },
+  { name: 'Receta', text: 'Paso 1: mezclar', s: { font: 'Georgia', size: 52, color: '#3a2a10', bgOn: true, bg: '#fff3d6', bgA: 1, bgR: .5 }, anim: { in: 'slideU', out: 'fade', loop: 'none' }, bg: 'linear-gradient(135deg,#d8a35a,#fff3d6)' }
 ];
 
 /* ---------- Stickers ---------- */
@@ -135,6 +165,26 @@ const STICKER_CATS = {
   'Comida': '🍕 🍔 🍟 🌮 🍣 🍩 🍪 🍫 🍦 🍓 🍉 🥑 ☕ 🧋 🍿 🥤',
   'Flechas': '⬆️ ⬇️ ⬅️ ➡️ ↗️ ↘️ ↙️ ↖️ ↔️ ↕️ 🔄 🔁 ⤴️ ⤵️ ▶️ ⏩'
 };
+
+/* Formas animadas dibujadas por código (se pueden pegar a un objeto con el seguimiento) */
+const SHAPES = [
+  { id: 'ring', name: 'Aro de luz', color: '#ffd400' },
+  { id: 'halo', name: 'Aura', color: '#7ff7ff' },
+  { id: 'pulse', name: 'Pulso', color: '#ffffff' },
+  { id: 'spark', name: 'Destello', color: '#fff6b0' },
+  { id: 'arrow', name: 'Flecha', color: '#ff2a4f' },
+  { id: 'frame', name: 'Marco neón', color: '#ff2fb9' },
+  { id: 'underline', name: 'Subrayado', color: '#ffd400' },
+  { id: 'check', name: 'Visto bueno', color: '#22c55e' }
+];
+
+/* Voces de texto a voz (Piper, se descargan una vez) */
+const TTS_VOICES = [
+  ['es_MX-claude-high', 'Claudio · México'], ['es_MX-ald-medium', 'Aldo · México'], ['es_ES-davefx-medium', 'David · España'],
+  ['es_ES-sharvard-medium', 'Sharvard · España'], ['es_ES-carlfm-x_low', 'Carlos · España (ligera)'],
+  ['en_US-amy-medium', 'Amy · Inglés'], ['en_US-ryan-medium', 'Ryan · Inglés'], ['pt_BR-faber-medium', 'Faber · Portugués']
+];
+const ASR_MODELS = [['Xenova/whisper-tiny', 'Rápido (40 MB)'], ['Xenova/whisper-base', 'Preciso (80 MB)'], ['Xenova/whisper-small', 'Muy preciso (250 MB)']];
 
 /* ---------- Curvas de velocidad (como en CapCut: Velocidad > Curva) ---------- */
 const CURVES = [
@@ -152,12 +202,15 @@ const MUSIC = [
   { id: 'pop', name: 'Pop alegre', bpm: 120, dur: 16, mood: 'Alegre' },
   { id: 'lofi', name: 'Lo-fi chill', bpm: 80, dur: 18, mood: 'Relajado' },
   { id: 'epic', name: 'Épico', bpm: 90, dur: 16, mood: 'Cinemático' },
-  { id: 'tropical', name: 'Tropical', bpm: 104, dur: 16, mood: 'Verano' }
+  { id: 'tropical', name: 'Tropical', bpm: 104, dur: 16, mood: 'Verano' },
+  { id: 'hiphop', name: 'Hip hop', bpm: 88, dur: 16, mood: 'Urbano' },
+  { id: 'edm', name: 'Electrónica', bpm: 128, dur: 15, mood: 'Energía' }
 ];
 const SFX = [
   { id: 'whoosh', name: 'Whoosh', dur: .9 }, { id: 'pop', name: 'Pop', dur: .3 }, { id: 'click', name: 'Clic', dur: .15 },
   { id: 'ding', name: 'Ding', dur: 1.4 }, { id: 'boom', name: 'Boom', dur: 1.6 }, { id: 'applause', name: 'Aplausos', dur: 2.5 },
-  { id: 'shutter', name: 'Cámara', dur: .4 }, { id: 'riser', name: 'Subida', dur: 2.2 }
+  { id: 'shutter', name: 'Cámara', dur: .4 }, { id: 'riser', name: 'Subida', dur: 2.2 },
+  { id: 'glitch', name: 'Glitch', dur: .6 }, { id: 'notif', name: 'Notificación', dur: .7 }, { id: 'drumroll', name: 'Redoble', dur: 2.4 }, { id: 'laser', name: 'Láser', dur: .5 }
 ];
 
 /* ---------- Video ---------- */
@@ -173,7 +226,9 @@ const ADJ_PRESETS = [
   { name: 'Brillante', adj: { b: 18, s: 15 } },
   { name: 'Desaturado', adj: { s: -60 } }
 ];
-const KF_PROPS = ['x', 'y', 'scale', 'rot', 'opacity', 'volume'];
+const KF_PROPS = ['x', 'y', 'scale', 'rot', 'opacity', 'volume', 'adj.b', 'adj.s', 'adj.blur', 'filterK'];
+const KF_EASE = [['smooth', 'Suave'], ['linear', 'Lineal'], ['in', 'Acelerar'], ['out', 'Frenar'], ['hold', 'Salto']];
+const CROP_RATIOS = [['free', 'Libre'], ['orig', 'Original'], ['16:9', '16:9'], ['9:16', '9:16'], ['1:1', '1:1'], ['4:3', '4:3'], ['3:4', '3:4']];
 
 /* ---------- Biblioteca de medios (generados sin conexión) ---------- */
 const LIB_COLORS = ['#000000', '#ffffff', '#ff4d4f', '#ffb020', '#ffe14d', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#ec4899'];
@@ -184,9 +239,9 @@ const LIB_PATTERNS = [['grid', 'Cuadrícula'], ['dots', 'Puntos'], ['stripes', '
 const RES_TABS = [['media', 'Medios', 'media'], ['audio', 'Audio', 'audio'], ['text', 'Texto', 'text'], ['stickers', 'Stickers', 'sticker'], ['effects', 'Efectos', 'effects'], ['transitions', 'Transiciones', 'transitions'], ['captions', 'Subtítulos', 'captions'], ['filters', 'Filtros', 'filters'], ['adjust', 'Ajuste', 'adjust'], ['templates', 'Plantillas', 'template']];
 const RES_SUBS = {
   media: [['local', 'Local'], ['library', 'Biblioteca']],
-  audio: [['music', 'Música'], ['sfx', 'Efectos de sonido'], ['extracted', 'Extraído'], ['record', 'Grabar voz'], ['local', 'Mis audios']],
-  text: [['add', 'Añadir texto'], ['templates', 'Plantillas de texto']],
-  stickers: Object.keys(STICKER_CATS).map(k => [k, k]),
+  audio: [['music', 'Música'], ['sfx', 'Efectos de sonido'], ['tts', 'Texto a voz'], ['extracted', 'Extraído'], ['record', 'Grabar voz'], ['local', 'Mis audios']],
+  text: [['add', 'Añadir texto'], ['templates', 'Plantillas de texto'], ['tts', 'Texto a voz']],
+  stickers: [['shapes', 'Formas animadas'], ...Object.keys(STICKER_CATS).map(k => [k, k])],
   effects: [['all', 'Todos'], ...EFFECT_CATS.map(k => [k, k])],
   transitions: [['all', 'Todas'], ...TRANS_CATS.map(k => [k, k])],
   captions: [['auto', 'Automáticos'], ['manual', 'Manual'], ['srt', 'Importar / exportar']],
@@ -211,7 +266,7 @@ const PLAN_ROWS = [
 
 const SHORTCUTS = [
   ['Reproducir / pausar', 'Espacio'], ['Dividir', 'Ctrl + B'], ['Eliminar a la izquierda del cabezal', 'Q'], ['Eliminar a la derecha del cabezal', 'W'],
-  ['Eliminar', 'Supr'], ['Copiar / pegar', 'Ctrl + C / Ctrl + V'], ['Duplicar', 'Ctrl + D'], ['Deshacer / rehacer', 'Ctrl + Z / Ctrl + Y'],
+  ['Eliminar', 'Supr'], ['Seleccionar varios', 'Ctrl/Shift + clic · arrastrar en vacío'], ['Seleccionar todo', 'Ctrl + A'], ['Copiar / pegar', 'Ctrl + C / Ctrl + V'], ['Duplicar', 'Ctrl + D'], ['Deshacer / rehacer', 'Ctrl + Z / Ctrl + Y'],
   ['Añadir marcador', 'M'], ['Fotograma anterior / siguiente', '← / →'], ['Saltar 1 segundo', 'Shift + ← / →'], ['Inicio / final', 'Inicio / Fin'],
   ['Acercar / alejar línea de tiempo', 'Ctrl + = / Ctrl + −'], ['Ajustar línea de tiempo', 'Shift + Z'], ['Guardar', 'Ctrl + S'], ['Exportar', 'Ctrl + E'],
   ['Pantalla completa', 'F'], ['Deseleccionar', 'Esc']

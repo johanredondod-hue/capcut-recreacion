@@ -1,6 +1,6 @@
 /* Service worker: guarda la app para que abra sin conexión y se pueda instalar.
    Solo funciona cuando la app se sirve por http(s) (no con file://). */
-const CACHE = 'capcut-recreacion-v1';
+const CACHE = 'capcut-recreacion-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/util.js', './js/catalog.js', './js/state.js', './js/media.js', './js/render.js', './js/timeline.js',

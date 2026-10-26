@@ -14,20 +14,23 @@ Editor de video que funciona en el navegador y recrea la interfaz y las funcione
 |---|---|
 | **Inicio** | Crear proyecto, accesos rápidos, lista de proyectos (abrir, renombrar, duplicar, eliminar), plantillas |
 | **Medios** | Importar video, foto y audio (botón o arrastrar); biblioteca de colores, degradados y fondos |
-| **Audio** | Música y efectos de sonido incluidos, audio extraído, grabar voz en off, importar audio |
-| **Texto** | 12 estilos y 8 plantillas animadas; fuente, contorno, fondo, sombra, neón, espaciado, alineación |
-| **Stickers** | 8 categorías de emojis animables |
-| **Efectos** | 20 efectos de video como segmentos en la línea de tiempo (VHS, fallo, RGB, confeti, destellos, película antigua…) |
-| **Transiciones** | 20 transiciones reales entre clips, con solapamiento (mezclar, barridos, empujar, zoom, girar, círculo, persiana, fallo…) |
-| **Subtítulos** | Automáticos (IA), manuales, importar y exportar `.srt`, resaltado palabra por palabra (karaoke) |
-| **Filtros / Ajuste** | 26 filtros por categoría con intensidad; capas de ajuste (brillo, contraste, saturación, temperatura, tono, desenfoque, viñeta) |
-| **Detalles del clip** | Escala, posición, rotación, opacidad, espejo, modos de fusión, recorte, máscaras (lineal, espejo, círculo, rectángulo, corazón, estrella), croma con cuentagotas, quitar fondo con IA |
-| **Velocidad** | Estándar (0,1x–10x, mantener tono) y **curvas** (Montaje, Héroe, Bala, Salto, Destello) con editor de puntos |
-| **Animación** | Entrada, salida y bucle; **fotogramas clave** ◆ en escala, posición, rotación, opacidad y volumen |
+| **Audio** | 6 canciones y 12 efectos de sonido incluidos, **texto a voz**, **audio de un video de tu equipo**, grabar voz en off, importar audio |
+| **Texto** | 15 estilos y 12 plantillas animadas; fuente, contorno, fondo, sombra, neón, **degradado**, **texto curvo**, espaciado, alineación; **leer en voz alta** |
+| **Stickers** | 8 categorías de emojis y 8 **formas animadas** (aro de luz, aura, pulso, destello, flecha, marco neón, subrayado, visto bueno) |
+| **Efectos** | 29 efectos de video como segmentos (VHS, fallo, RGB, lluvia, nieve, corazones, bokeh, caleidoscopio, pixelado, duotono, eco…) |
+| **Transiciones** | 28 transiciones reales con solapamiento (mezclar, barridos, empujar, zoom, girar, círculo, corazón, reloj, puertas, cubo 3D, pixelar…) |
+| **Voz a texto** | Subtítulos automáticos con 3 niveles de precisión, traducción al inglés, manuales, importar/exportar `.srt`, resaltado palabra por palabra |
+| **Texto a voz** | 8 voces naturales (México, España, inglés, portugués); crea el audio y, si quieres, su subtítulo |
+| **Filtros / Ajuste** | 32 filtros con intensidad; capas de ajuste; **curvas** (sombras, medios, luces) y **ruedas de color** por clip |
+| **Detalles del clip** | Escala, posición, rotación, opacidad, espejo, rellenar/ajustar, modos de fusión, máscaras con **borde difuminado**, croma con cuentagotas, quitar fondo con IA |
+| **Recortar** | **En pantalla con asas** (esquinas y bordes), proporciones fijas (16:9, 9:16, 1:1, 4:3, 3:4, original) y deslizadores |
+| **Objeto (IA)** | **Clic sobre un objeto** (zapato, taza, mascota…): recortarlo, quitarlo, **contorno de luz**, **seguimiento** por el video, **aro de luz o texto que lo siguen**, reencuadre automático |
+| **Velocidad** | Estándar (0,1x–10x, mantener tono), **curvas** con editor de puntos y **reproducir en reversa** |
+| **Animación** | Entrada, salida y bucle; **fotogramas clave** ◆ en escala, posición, rotación, opacidad, volumen, brillo, saturación y desenfoque, con 5 tipos de interpolación |
 | **Audio del clip** | Volumen hasta 200 %, fundidos, reducción de ruido, aislar voz, normalizar, cambiador de voz (eco, sala, radio, teléfono, robot, grave, megáfono), detección de ritmo |
-| **Línea de tiempo** | Pistas ilimitadas (texto, efectos, superposición, principal, audio), pista principal magnética, imán, arrastrar entre pistas, recortar bordes, dividir, Q/W, congelar fotograma, separar audio, marcadores, bloquear/ocultar/silenciar pista, portada, menú de clic derecho, zoom con Ctrl+rueda o pellizco |
-| **Reproductor** | Mover, escalar (esquinas o rueda) y girar elementos directamente; 8 proporciones; fondo de color o desenfocado; pantalla completa |
-| **Exportar** | MP4 (H.264) o WebM, 480p–4K, 24–60 fps, tasa de bits, solo audio, fotograma PNG, subtítulos SRT |
+| **Línea de tiempo** | **Selección múltiple** (Ctrl/Shift + clic, recuadro, Ctrl+A) para mover, duplicar, copiar, borrar y editar varios clips; pistas ilimitadas, pista principal magnética, imán, arrastrar entre pistas, dividir, Q/W, congelar, separar audio, marcadores, bloquear/ocultar/silenciar, menú de clic derecho |
+| **Reproductor** | Mover, escalar y girar elementos directamente; 8 proporciones; fondo de color o desenfocado; pantalla completa |
+| **Exportar** | **Rápido** (WebCodecs, MP4 H.264 + AAC) o compatibilidad (MP4/WebM en tiempo real), 480p–4K, 24–60 fps, **audio WAV al instante**, fotograma PNG, subtítulos SRT |
 | **Móvil** | Interfaz tipo app: cabezal fijo en el centro, barra inferior de herramientas, paneles deslizables, pellizcar para zoom |
 
 ## Mejoras basadas en la comunidad
@@ -76,14 +79,17 @@ Para añadir un filtro, efecto, transición o estilo de texto basta con agregar 
 
 ## Atajos
 
-`Espacio` reproducir · `Ctrl+B` dividir · `Q`/`W` eliminar a la izquierda/derecha del cabezal · `Supr` eliminar · `Ctrl+C/V/X/D` copiar, pegar, cortar, duplicar · `Ctrl+Z/Y` deshacer y rehacer · `M` marcador · `←/→` fotograma · `Shift+←/→` 1 s · `Ctrl+=`/`Ctrl+−` zoom · `Shift+Z` ajustar · `Ctrl+S` guardar · `Ctrl+E` exportar · `F` pantalla completa.
+`Espacio` reproducir · `Ctrl/Shift+clic` seleccionar varios · `Ctrl+A` seleccionar todo · `Enter` terminar recorte · `Ctrl+B` dividir · `Q`/`W` eliminar a la izquierda/derecha del cabezal · `Supr` eliminar · `Ctrl+C/V/X/D` copiar, pegar, cortar, duplicar · `Ctrl+Z/Y` deshacer y rehacer · `M` marcador · `←/→` fotograma · `Shift+←/→` 1 s · `Ctrl+=`/`Ctrl+−` zoom · `Shift+Z` ajustar · `Ctrl+S` guardar · `Ctrl+E` exportar · `F` pantalla completa.
 
 ## Limitaciones conocidas
 
-- **La exportación es en tiempo real:** un video de 1 minuto tarda 1 minuto. Hay que mantener la pestaña visible.
-- **Subtítulos automáticos:** la primera vez se descargan unos 40 MB (alrededor de 1 minuto). Después quedan en caché.
-- **Quitar fondo:** funciona mejor con personas, porque usa un modelo de segmentación de selfies.
-- **No incluye** video en reversa, seguimiento de movimiento, estabilización, avatares IA ni texto a voz exportable.
+- **Exportación rápida:** suele ir más rápido que el tiempo real, pero con «Recortar objeto» o «Contorno de luz» la IA analiza cada fotograma y tarda más. Si el navegador no tiene WebCodecs se usa el modo compatibilidad (tiempo real, con la pestaña visible).
+- **Primera vez de cada IA:** se descarga el modelo una sola vez. Voz a texto: 40–250 MB. Texto a voz: unos 60 MB por voz, alrededor de 1 minuto. Objetos: unos 6 MB.
+- **Seguimiento de objetos:** funciona mejor con objetos que se distinguen del fondo. Si el objeto sale de la imagen, se queda en la última posición conocida.
+- **Quitar fondo** automático funciona mejor con personas. Para otros objetos usa «Objeto (IA)».
+- **La exportación rápida no mantiene el tono** al cambiar la velocidad. El modo compatibilidad sí lo mantiene.
+- **iPhone/Safari:** algunos filtros del lienzo pueden no verse. La app está pensada para Chrome, Edge o Android.
+- **No incluye:** estabilización, avatares IA, generación de imágenes con IA ni edición en equipo.
 
 ## Fuentes consultadas
 

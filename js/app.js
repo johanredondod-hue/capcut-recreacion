@@ -14,7 +14,7 @@ function updPlayBtn() { const b = $('#btnPlay'); if (b) b.innerHTML = ic(S.playi
 let lastFrame = performance.now();
 function loop(now) {
   const dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
-  if (S.view === 'editor') {
+  if (S.view === 'editor' && !(S.exporting && S.exporting.fast)) {
     if (S.playing) {
       S.t += dt;
       const T = total();
@@ -24,7 +24,7 @@ function loop(now) {
     syncMedia();
     if (S.playing || needDraw) { draw(); needDraw = false; }
     updTime();
-    if (S.exporting) updExportProgress();
+    if (S.exporting && !S.exporting.fast) updExportProgress();
   }
   requestAnimationFrame(loop);
 }
@@ -39,18 +39,81 @@ function syncTransformInputs(c) {
   }
 }
 function canvasPoint(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; }
+/* ---------- Elegir un objeto con IA: el siguiente clic en el reproductor ---------- */
+function startPickObject(c = S.sel && clipById(S.sel)) {
+  if (!c || !isVisual(c)) return toast('Selecciona un video o una imagen');
+  if (S.sel !== c.id) selectClip(c.id);
+  S._pickObj = c.id; S.cropMode = null; cv.classList.add('pick'); loadISeg();
+  if (isMobile()) closeSheets();
+  toast('Toca o haz clic sobre el objeto en el reproductor', 4000);
+}
+/* ---------- Recorte en pantalla (asas en las esquinas y bordes) ---------- */
+function setCropMode(on) {
+  const c = S.sel && clipById(S.sel);
+  S.cropMode = on && c && isVisual(c) ? c.id : null;
+  cv.classList.toggle('pick', false); renderProps(); invalidate();
+  if (S.cropMode) toast('Arrastra las esquinas o los bordes. Pulsa «Listo» o Enter al terminar.');
+}
+function applyCropRatio(c, r) {
+  S.cropRatio = r; const m = med(c.mediaId); if (!m || r === 'free') return;
+  commit();
+  if (r === 'orig') { c.crop = { l: 0, t: 0, r: 0, b: 0 }; afterChange(); return; }
+  const [a, b] = r.split(':').map(Number), want = a / b, src = m.w / m.h;
+  let cw = 1, ch = 1; if (want > src) ch = src / want; else cw = want / src;
+  c.crop = { l: (1 - cw) / 2, r: (1 - cw) / 2, t: (1 - ch) / 2, b: (1 - ch) / 2 }; afterChange();
+}
+function cropPointer(e, c) {
+  const g = c._crop; if (!g) return false;
+  const [px, py] = canvasPoint(e), toUV = (qx, qy) => {
+    const a = -g.ang * Math.PI / 180, dx = qx - g.cx, dy = qy - g.cy;
+    let lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+    if (g.flipH) lx = -lx; if (g.flipV) ly = -ly;
+    return [(lx + g.w / 2) / g.fw + g.l, (ly + g.h / 2) / g.fh + g.t];
+  };
+  const [u0, v0] = toUV(px, py), tolU = 16 * KS() / g.fw, tolV = 16 * KS() / g.fh, o = { ...c.crop };
+  const R = 1 - o.r, B = 1 - o.b;
+  const near = { l: Math.abs(u0 - o.l) < tolU, r: Math.abs(u0 - R) < tolU, t: Math.abs(v0 - o.t) < tolV, b: Math.abs(v0 - B) < tolV };
+  const inside = u0 > o.l && u0 < R && v0 > o.t && v0 < B, anyEdge = near.l || near.r || near.t || near.b;
+  if (!anyEdge && !inside) { setCropMode(false); return true; }
+  const before = snapshot(), lock = S.cropRatio !== 'free', MIN = .05;
+  cv.setPointerCapture(e.pointerId); e.preventDefault();
+  const mv = ev => {
+    const [qx, qy] = canvasPoint(ev), [u, v] = toUV(qx, qy), du = u - u0, dv = v - v0, n = { ...o };
+    if (!anyEdge || lock && !anyEdge) {            // mover la ventana de recorte
+      const w = R - o.l, h = B - o.t, l = clamp(o.l + du, 0, 1 - w), t = clamp(o.t + dv, 0, 1 - h);
+      Object.assign(n, { l, r: 1 - l - w, t, b: 1 - t - h });
+    } else if (lock) {                             // escalar manteniendo la proporción
+      const cxu = (o.l + R) / 2, cyv = (o.t + B) / 2, s = clamp(Math.max(Math.abs(u - cxu) / ((R - o.l) / 2), Math.abs(v - cyv) / ((B - o.t) / 2)), .1, 10);
+      let hw = (R - o.l) / 2 * s, hh = (B - o.t) / 2 * s; const fit = Math.min(1, cxu / hw, (1 - cxu) / hw, cyv / hh, (1 - cyv) / hh); hw *= fit; hh *= fit;
+      Object.assign(n, { l: cxu - hw, r: 1 - cxu - hw, t: cyv - hh, b: 1 - cyv - hh });
+    } else {
+      if (near.l) n.l = clamp(o.l + du, 0, R - MIN); if (near.r) n.r = clamp(o.r - du, 0, 1 - o.l - MIN);
+      if (near.t) n.t = clamp(o.t + dv, 0, B - MIN); if (near.b) n.b = clamp(o.b - dv, 0, 1 - o.t - MIN);
+    }
+    c.crop = n; invalidate();
+  };
+  const up = () => { cv.removeEventListener('pointermove', mv); cv.removeEventListener('pointerup', up); cv.removeEventListener('pointercancel', up); pushBefore(before); afterChange(); };
+  cv.addEventListener('pointermove', mv); cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  return true;
+}
 function initCanvas() {
   cv.addEventListener('pointerdown', e => {
     hideMenus();
     const [px, py] = canvasPoint(e);
+    if (S._pickObj) {                                 // elegir un objeto con IA
+      const c = clipById(S._pickObj); S._pickObj = null; cv.classList.remove('pick');
+      if (c) pickObjectAt(c, px, py); return;
+    }
+    if (S.cropMode) { const c = clipById(S.cropMode); if (c && cropPointer(e, c)) return; }
     if (S._pick) {                                      // cuentagotas del croma
       const c = clipById(S._pick); S._pick = null; cv.classList.remove('pick');
       S._noSel = true; const ch = c.chroma.on; c.chroma.on = false; draw(); const d = ctx.getImageData(px | 0, py | 0, 1, 1).data; c.chroma.on = ch; S._noSel = false;
       commit(); c.chroma.color = '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''); afterChange(); return;
     }
     const hit = hitTest(px, py);
-    if (!hit) { if (S.sel) selectClip(null); return; }
-    const c = hit.c; if (S.sel !== c.id) selectClip(c.id);
+    if (!hit) { if (S.sel || S.msel.length) selectClip(null); return; }
+    if (e.shiftKey || e.ctrlKey || e.metaKey) { toggleSel(hit.c.id); return; }
+    const c = hit.c; if (S.sel !== c.id || S.msel.length) selectClip(c.id);
     const lt = localT(c), before = snapshot(), b = { ...c._bb };
     const ox = kv(c, 'x', lt), oy = kv(c, 'y', lt), os = kv(c, 'scale', lt), orot = kv(c, 'rot', lt);
     const a0 = Math.atan2(py - b.cy, px - b.cx), d0 = Math.max(1, Math.hypot(px - b.cx, py - b.cy));
@@ -134,6 +197,7 @@ function bindApp() {
   // Archivos
   $('#fileIn').onchange = e => { if (S.view !== 'editor') newProject(); importFiles(e.target.files); e.target.value = ''; };
   $('#srtIn').onchange = e => { if (e.target.files[0]) importSRT(e.target.files[0]); e.target.value = ''; };
+  $('#avIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) audioFromVideoFiles(f); };
   $('#replaceIn').onchange = async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     const m = registerMedia({ name: f.name, type: f.type.split('/')[0], folder: 'local' }, f); await m.readyP;
@@ -161,7 +225,7 @@ function bindApp() {
     const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
     if (e.code === 'Space') { e.preventDefault(); toggle(); return; }
     if (mod) {
-      const acts = { z: () => e.shiftKey ? redo() : undo(), y: redo, b: split, c: copySel, x: cutSel, v: paste, d: duplicate, s: () => saveProject(true), e: openExport, '=': () => setZoom(S.zoom * 1.3), '+': () => setZoom(S.zoom * 1.3), '-': () => setZoom(S.zoom / 1.3) };
+      const acts = { z: () => e.shiftKey ? redo() : undo(), y: redo, b: split, c: copySel, x: cutSel, v: paste, d: duplicate, a: selectAll, s: () => saveProject(true), e: openExport, '=': () => setZoom(S.zoom * 1.3), '+': () => setZoom(S.zoom * 1.3), '-': () => setZoom(S.zoom / 1.3) };
       if (acts[k]) { e.preventDefault(); acts[k](); }
       return;
     }
@@ -177,7 +241,12 @@ function bindApp() {
       case 'arrowright': e.preventDefault(); pause(); seek(S.t + step); followPlayhead(); break;
       case 'home': seek(0); followPlayhead(); break;
       case 'end': seek(total()); followPlayhead(); break;
-      case 'escape': hideMenus(); closeSheets(); if (S.sel || S.selTrans) selectClip(null); break;
+      case 'enter': if (S.cropMode) setCropMode(false); break;
+      case 'escape':
+        hideMenus(); closeSheets();
+        if (S.cropMode) { setCropMode(false); break; }
+        if (S._pickObj) { S._pickObj = null; cv.classList.remove('pick'); break; }
+        if (S.sel || S.selTrans || S.msel.length) selectClip(null); break;
     }
   });
 }

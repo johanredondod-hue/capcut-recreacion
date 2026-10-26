@@ -20,14 +20,36 @@ function routeEl(el) {
   if (!AC || el._src) return;
   try { el._src = AC.createMediaElementSource(el); el._gain = AC.createGain(); el._gain.connect(masterGain); el._nodes = []; el._fxKey = null; el._src.connect(el._gain); } catch (e) { }
 }
-function impulse() {
-  if (IR) return IR;
-  const len = AC.sampleRate * 2.4; IR = AC.createBuffer(2, len, AC.sampleRate);
-  for (let c = 0; c < 2; c++) { const d = IR.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
-  return IR;
+const IRS = new WeakMap();
+function impulse(ac) {
+  if (IRS.has(ac)) return IRS.get(ac);
+  const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (rnd(i * 1.3 + c) * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  IRS.set(ac, ir); return ir;
 }
 function distCurve(k) { const n = 512, cu = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; cu[i] = (3 + k) * x * 20 * Math.PI / 180 / (Math.PI + k * Math.abs(x)); } return cu; }
-/* Cadena de efectos de voz / reducción de ruido para un elemento */
+/* Construye la cadena de efectos de voz / limpieza de audio. Sirve tanto para la
+   reproducción en vivo como para la mezcla sin conexión de la exportación rápida. */
+function buildFxChain(ac, input, c, nodes = [], startAt = 0) {
+  let node = input;
+  const mk = n => { nodes.push(n); return n; };
+  const add = n => { node.connect(n); node = mk(n); return n; };
+  const biq = (type, f, q = .7, g = 0) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.gain.value = g; return b; };
+  if (c.denoise) { add(biq('highpass', 90)); add(biq('lowpass', 9000)); const g = ac.createDynamicsCompressor(); g.threshold.value = -40; g.ratio.value = 2; add(g); }
+  if (c.isolate) { add(biq('highpass', 180)); add(biq('lowpass', 4200)); add(biq('peaking', 2500, 1, 4)); }
+  if (c.normalize) { const cp = ac.createDynamicsCompressor(); cp.threshold.value = -26; cp.ratio.value = 4; add(cp); const g = ac.createGain(); g.gain.value = 1.7; add(g); }
+  const mix = () => mk(ac.createGain());
+  switch (c.voice) {
+    case 'echo': { const out = mix(), d = mk(ac.createDelay(1)), fb = mk(ac.createGain()), w = mk(ac.createGain()); d.delayTime.value = .28; fb.gain.value = .38; w.gain.value = .55; node.connect(out); node.connect(d); d.connect(fb); fb.connect(d); d.connect(w); w.connect(out); node = out; break; }
+    case 'hall': { const out = mix(), cv = mk(ac.createConvolver()), w = mk(ac.createGain()); cv.buffer = impulse(ac); w.gain.value = .5; node.connect(out); node.connect(cv); cv.connect(w); w.connect(out); node = out; break; }
+    case 'radio': { add(biq('bandpass', 1500, .9)); const ws = ac.createWaveShaper(); ws.curve = distCurve(25); add(ws); break; }
+    case 'phone': { add(biq('highpass', 400)); add(biq('lowpass', 3000)); const ws = ac.createWaveShaper(); ws.curve = distCurve(10); add(ws); break; }
+    case 'robot': { const rg = ac.createGain(); rg.gain.value = 0; const o = mk(ac.createOscillator()); o.frequency.value = 55; o.connect(rg.gain); o.start(startAt); add(rg); const g = ac.createGain(); g.gain.value = 1.8; add(g); break; }
+    case 'deep': { add(biq('lowshelf', 220, .7, 9)); add(biq('lowpass', 3200)); break; }
+    case 'megaphone': { add(biq('bandpass', 1800, 2)); const ws = ac.createWaveShaper(); ws.curve = distCurve(60); add(ws); const g = ac.createGain(); g.gain.value = .7; add(g); break; }
+  }
+  return node;
+}
 function applyAudioFx(el, c) {
   if (!el._src) return;
   const key = [c.voice, c.denoise, c.isolate, c.normalize].join('|');
@@ -36,24 +58,25 @@ function applyAudioFx(el, c) {
   try { el._src.disconnect(); } catch (e) { }
   el._nodes.forEach(n => { try { n.disconnect(); } catch (e) { } try { n.stop && n.stop(); } catch (e) { } });
   el._nodes = [];
-  let node = el._src;
-  const mk = n => { el._nodes.push(n); return n; };
-  const add = n => { node.connect(n); node = mk(n); return n; };
-  const biq = (type, f, q = .7, g = 0) => { const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.gain.value = g; return b; };
-  if (c.denoise) { add(biq('highpass', 90)); add(biq('lowpass', 9000)); const g = AC.createDynamicsCompressor(); g.threshold.value = -40; g.ratio.value = 2; add(g); }
-  if (c.isolate) { add(biq('highpass', 180)); add(biq('lowpass', 4200)); add(biq('peaking', 2500, 1, 4)); }
-  if (c.normalize) { const cp = AC.createDynamicsCompressor(); cp.threshold.value = -26; cp.ratio.value = 4; add(cp); const g = AC.createGain(); g.gain.value = 1.7; add(g); }
-  const mix = () => { const m = mk(AC.createGain()); return m; };
-  switch (c.voice) {
-    case 'echo': { const out = mix(), d = mk(AC.createDelay(1)), fb = mk(AC.createGain()), w = mk(AC.createGain()); d.delayTime.value = .28; fb.gain.value = .38; w.gain.value = .55; node.connect(out); node.connect(d); d.connect(fb); fb.connect(d); d.connect(w); w.connect(out); node = out; break; }
-    case 'hall': { const out = mix(), cv = mk(AC.createConvolver()), w = mk(AC.createGain()); cv.buffer = impulse(); w.gain.value = .5; node.connect(out); node.connect(cv); cv.connect(w); w.connect(out); node = out; break; }
-    case 'radio': { add(biq('bandpass', 1500, .9)); const ws = AC.createWaveShaper(); ws.curve = distCurve(25); add(ws); break; }
-    case 'phone': { add(biq('highpass', 400)); add(biq('lowpass', 3000)); const ws = AC.createWaveShaper(); ws.curve = distCurve(10); add(ws); break; }
-    case 'robot': { const rg = AC.createGain(); rg.gain.value = 0; const o = mk(AC.createOscillator()); o.frequency.value = 55; o.connect(rg.gain); o.start(); add(rg); const g = AC.createGain(); g.gain.value = 1.8; add(g); break; }
-    case 'deep': { add(biq('lowshelf', 220, .7, 9)); add(biq('lowpass', 3200)); break; }
-    case 'megaphone': { add(biq('bandpass', 1800, 2)); const ws = AC.createWaveShaper(); ws.curve = distCurve(60); add(ws); const g = AC.createGain(); g.gain.value = .7; add(g); break; }
+  buildFxChain(AC, el._src, c, el._nodes).connect(el._gain);
+}
+/* Audio decodificado (48 kHz) para la mezcla de la exportación rápida y la reversa */
+async function decodedBuffer(m) {
+  if (m._abuf) return m._abuf;
+  try { m._abuf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await m.blob.arrayBuffer()); } catch (e) { m._abuf = null; }
+  return m._abuf;
+}
+/* Usar solo el audio de un video que tengas en tu equipo */
+async function audioFromVideoFiles(files, at = S.t) {
+  const list = [...files].filter(f => /^(video|audio)\//.test(f.type));
+  if (!list.length) return toast('Elige un archivo de video');
+  for (const f of list) {
+    const m = registerMedia({ name: f.name.replace(/\.[^.]+$/, '') + ' (audio)', type: 'audio', folder: 'extract' }, f);
+    await m.readyP;
+    if (m.hasAudio === false) { toast(`${f.name} no tiene audio`); continue; }
+    addMediaClip(m, { start: at });
   }
-  node.connect(el._gain);
+  toast('Audio del video añadido a la línea de tiempo');
 }
 
 /* ---------- Elementos de reproducción (un "pool" por archivo) ----------
@@ -256,7 +279,9 @@ const SONGS = {
   pop: { bpm: 120, prog: [[60, 64, 67], [67, 71, 74], [69, 72, 76], [65, 69, 72]], lead: 'square', pad: 'triangle', mel: [76, 79, 81, 79, 76, 74, 72, 74] },
   lofi: { bpm: 80, prog: [[62, 65, 69, 72], [67, 71, 74, 77], [60, 64, 67, 71], [69, 72, 76, 79]], lead: 'sine', pad: 'triangle', mel: [74, 72, 69, 72, 74, 77, 76, 72], swing: true, lp: 1800 },
   epic: { bpm: 90, prog: [[57, 60, 64], [53, 57, 60], [60, 64, 67], [55, 59, 62]], lead: 'sawtooth', pad: 'sawtooth', mel: [69, 72, 76, 74, 72, 71, 69, 67], lp: 1400, toms: true },
-  tropical: { bpm: 104, prog: [[64, 67, 71], [60, 64, 67], [67, 71, 74], [62, 66, 69]], lead: 'square', pad: 'sine', mel: [76, 79, 83, 79, 81, 79, 76, 74], pluck: true }
+  tropical: { bpm: 104, prog: [[64, 67, 71], [60, 64, 67], [67, 71, 74], [62, 66, 69]], lead: 'square', pad: 'sine', mel: [76, 79, 83, 79, 81, 79, 76, 74], pluck: true },
+  hiphop: { bpm: 88, prog: [[57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 65], [52, 55, 59, 62]], lead: 'triangle', pad: 'triangle', mel: [69, 67, 64, 67, 69, 72, 69, 67], swing: true, lp: 2200 },
+  edm: { bpm: 128, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], lead: 'sawtooth', pad: 'sawtooth', mel: [81, 81, 79, 76, 81, 84, 83, 79], lp: 3800, four: true }
 };
 function synthMusic(id) {
   const meta = MUSIC.find(x => x.id === id), sg = SONGS[id], beat = 60 / sg.bpm, secs = meta.dur;
@@ -272,7 +297,8 @@ function synthMusic(id) {
         if (rnd(b * 8 + i) > .25) synthNote(oc, out, NOTE(n), t0 + i * beat / 2 + sw, sg.pluck ? .18 : beat / 2 * .8, sg.lead, sg.lead === 'square' ? .045 : .08, .005, sg.lp || 5000);
       }
       for (let i = 0; i < 4; i++) {
-        if (sg.toms) { drum(oc, out, 'kick', t0 + i * beat, 1); if (i % 2) drum(oc, out, 'snare', t0 + i * beat, 1.2); }
+        if (sg.four) { drum(oc, out, 'kick', t0 + i * beat, 1.1); if (i % 2) drum(oc, out, 'snare', t0 + i * beat, .9); }
+        else if (sg.toms) { drum(oc, out, 'kick', t0 + i * beat, 1); if (i % 2) drum(oc, out, 'snare', t0 + i * beat, 1.2); }
         else { if (i % 2 === 0 || (id === 'tropical' && i === 3)) drum(oc, out, 'kick', t0 + i * beat, .9); if (i % 2) drum(oc, out, 'snare', t0 + i * beat, id === 'lofi' ? .6 : 1); }
         drum(oc, out, 'hat', t0 + i * beat + beat / 2 + (sg.swing ? beat * .12 : 0), .9); drum(oc, out, 'hat', t0 + i * beat, .6);
       }
@@ -293,6 +319,10 @@ function synthSfx(id) {
       case 'applause': for (let i = 0; i < 160; i++) { const t = rnd(i) * 2.2, s = nz(.03), f = oc.createBiquadFilter(), g = oc.createGain(); f.type = 'bandpass'; f.frequency.value = 1200 + rnd(i + 9) * 2000; g.gain.setValueAtTime(.35 * (1 - t / 2.5), t); g.gain.exponentialRampToValueAtTime(.001, t + .03); s.connect(f); f.connect(g); g.connect(out); s.start(t); } break;
       case 'shutter': [0, .12].forEach(t => { const s = nz(.05), f = oc.createBiquadFilter(), g = oc.createGain(); f.type = 'highpass'; f.frequency.value = 2000; g.gain.setValueAtTime(.8, t); g.gain.exponentialRampToValueAtTime(.001, t + .05); s.connect(f); f.connect(g); g.connect(out); s.start(t); }); break;
       case 'riser': { const o = oc.createOscillator(), f = oc.createBiquadFilter(), g = oc.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(180, 0); o.frequency.exponentialRampToValueAtTime(1400, 2.1); f.type = 'lowpass'; f.frequency.setValueAtTime(400, 0); f.frequency.exponentialRampToValueAtTime(6000, 2.1); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(.35, 2); g.gain.linearRampToValueAtTime(0, 2.2); o.connect(f); f.connect(g); g.connect(out); o.start(0); o.stop(2.2); break; }
+      case 'glitch': for (let i = 0; i < 14; i++) { const t = i * .04, o = oc.createOscillator(), g = oc.createGain(); o.type = 'square'; o.frequency.value = 80 + rnd(i) * 1800; g.gain.setValueAtTime(.18, t); g.gain.setValueAtTime(0, t + .03); o.connect(g); g.connect(out); o.start(t); o.stop(t + .035); } break;
+      case 'notif': synthNote(oc, out, 1046, 0, .25, 'sine', .45); synthNote(oc, out, 1568, .12, .5, 'sine', .4); break;
+      case 'drumroll': for (let i = 0; i < 44; i++) drum(oc, out, 'snare', i * .045, .25 + i / 44 * .8); drum(oc, out, 'kick', 2.05, 1.2); break;
+      case 'laser': { const o = oc.createOscillator(), g = oc.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(2400, 0); o.frequency.exponentialRampToValueAtTime(120, .4); g.gain.setValueAtTime(.35, 0); g.gain.exponentialRampToValueAtTime(.001, .45); o.connect(g); g.connect(out); o.start(0); o.stop(.5); break; }
     }
   });
 }

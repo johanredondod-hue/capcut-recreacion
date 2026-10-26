@@ -95,8 +95,9 @@ const mainTrackObj = () => ({ id: 'main', kind: 'video', main: true, mute: false
 function resetEditorState() {
   S.playing = false; pauseAllMedia();
   for (const m of S.media) { (m.pool || []).forEach(el => { el.removeAttribute('src'); el.load(); }); URL.revokeObjectURL(m.url); }
-  Object.assign(S, { media: [], tracks: [mainTrackObj()], clips: [], markers: [], t: 0, sel: null, selTrans: null, cover: null, magnet: true, bgMode: 'color', bg: '#000000', bgBlur: 24, ratio: '16:9', fps: 30, zoom: 60, ptab: 0, psub: {} });
-  HIST.undo = []; HIST.redo = []; KEYC.clear();
+  Object.assign(S, { media: [], tracks: [mainTrackObj()], clips: [], markers: [], t: 0, sel: null, selTrans: null, msel: [], multiMode: false, cropMode: null, cropRatio: 'free', cover: null, magnet: true, bgMode: 'color', bg: '#000000', bgBlur: 24, ratio: '16:9', fps: 30, zoom: 60, ptab: 0, psub: {} });
+  S._pickObj = null; S._pick = null;
+  HIST.undo = []; HIST.redo = []; KEYC.clear(); OBJM.clear();
 }
 function newProject(name) {
   resetEditorState();

@@ -15,8 +15,14 @@ const S = {
   media: [], tracks: [], clips: [], markers: [],
   t: 0, playing: false, zoom: 60, sel: null, selTrans: null,
   tab: 'media', sub: {}, ptab: 0, ptabName: null, psub: {},
-  snap: true, magnet: true, exportScale: 1, exporting: null, clipboard: null, recording: null
+  snap: true, magnet: true, exportScale: 1, exporting: null, clipboard: null, recording: null,
+  msel: [],                       // selección múltiple (ids)
+  cropMode: null, cropRatio: 'free',
+  ttsVoice: 'es_MX-claude-high', asrModel: 'Xenova/whisper-tiny'
 };
+/* Clips seleccionados (uno o varios) */
+const selIds = () => S.msel.length ? S.msel.slice() : (S.sel ? [S.sel] : []);
+const isSelected = id => S.sel === id || S.msel.includes(id);
 const HIST = { undo: [], redo: [] };
 const CLEAN = (k, v) => (k && k[0] === '_') ? undefined : v;
 
@@ -75,11 +81,15 @@ function tlTimeOf(c, src) {
 /* ---------- Propiedades y fotogramas clave ---------- */
 const getP = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 function setP(o, p, v) { const ks = p.split('.'), l = ks.pop(); const t = ks.reduce((a, k) => (a[k] ??= {}), o); t[l] = v; }
+const EASE = {
+  smooth: smooth, linear: p => p, in: p => p * p * p, out: p => 1 - Math.pow(1 - p, 3), hold: p => p < 1 ? 0 : 1
+};
 function kv(c, prop, lt) {
   const a = c.kf && c.kf[prop];
-  if (!a || !a.length) { const v = c[prop]; return v == null ? (prop === 'scale' || prop === 'opacity' || prop === 'volume' ? 1 : 0) : v; }
+  if (!a || !a.length) { const v = prop.includes('.') ? getP(c, prop) : c[prop]; return v == null ? (prop === 'scale' || prop === 'opacity' || prop === 'volume' || prop === 'filterK' ? 1 : 0) : v; }
   if (lt <= a[0].t) return a[0].v;
-  for (let i = 0; i < a.length - 1; i++) if (lt < a[i + 1].t) return lerp(a[i].v, a[i + 1].v, smooth((lt - a[i].t) / (a[i + 1].t - a[i].t)));
+  const ease = EASE[c.kfEase] || smooth;
+  for (let i = 0; i < a.length - 1; i++) if (lt < a[i + 1].t) return lerp(a[i].v, a[i + 1].v, ease(clamp((lt - a[i].t) / (a[i + 1].t - a[i].t), 0, 1)));
   return a[a.length - 1].v;
 }
 const localT = c => clamp(S.t - c.start, 0, dur(c));
@@ -91,7 +101,7 @@ function setKF(c, prop, lt, v) {
 }
 function toggleKF(c, prop) {
   const lt = localT(c), i = kfAt(c, prop, lt);
-  if (i >= 0) { const v = kv(c, prop, lt); c.kf[prop].splice(i, 1); if (!c.kf[prop].length) { delete c.kf[prop]; c[prop] = v; } }
+  if (i >= 0) { const v = kv(c, prop, lt); c.kf[prop].splice(i, 1); if (!c.kf[prop].length) { delete c.kf[prop]; setP(c, prop, v); } }
   else setKF(c, prop, lt, kv(c, prop, lt));
 }
 /* Cambia una propiedad respetando los fotogramas clave (como CapCut) */
@@ -100,20 +110,32 @@ function setProp(c, p, v) {
   else setP(c, p, v);
 }
 function kfTimes(c) { const s = new Set(); if (c.kf) for (const k in c.kf) c.kf[k].forEach(x => s.add(+x.t.toFixed(3))); return [...s].sort((a, b) => a - b); }
+/* Saltar al fotograma clave anterior / siguiente */
+function jumpKF(dir) {
+  const c = S.sel && clipById(S.sel); if (!c) return;
+  const ts = kfTimes(c).map(t => c.start + t), cur = S.t;
+  const t = dir > 0 ? ts.find(x => x > cur + 1e-3) : [...ts].reverse().find(x => x < cur - 1e-3);
+  if (t != null) { pause(); seek(t); followPlayhead(); } else toast('No hay más fotogramas clave');
+}
 
 /* ---------- Plantillas de clip ---------- */
 const VIS = () => ({
   x: 0, y: 0, scale: 1, rot: 0, opacity: 1, flipH: false, flipV: false, blend: 'source-over',
   filter: 'none', filterK: 1, adj: { b: 0, c: 0, s: 0, temp: 0, hue: 0, blur: 0, vig: 0 },
-  crop: { l: 0, t: 0, r: 0, b: 0 }, mask: { type: 'none', size: .8, round: 0, angle: 0, invert: false },
+  crop: { l: 0, t: 0, r: 0, b: 0 }, mask: { type: 'none', size: .8, round: 0, angle: 0, invert: false, feather: 0 },
   chroma: { on: false, color: '#00ff00', k: .35, soft: .1 }, rmbg: false,
-  anim: { in: 'none', inD: .5, out: 'none', outD: .5, loop: 'none', loopD: 1 }, kf: {}, trans: null
+  anim: { in: 'none', inD: .5, out: 'none', outD: .5, loop: 'none', loopD: 1 }, kf: {}, kfEase: 'smooth', trans: null,
+  cc: { sh: 0, md: 0, hl: 0, lift: '#808080', gamma: '#808080', gain: '#808080' },   // curvas y ruedas de color
+  obj: null,                      // objeto seleccionado con IA: { pt, track, cut, invert, glow, glowColor, glowSize, reframe }
+  follow: null                    // seguir el objeto de otro clip: { id, scale }
 });
+const OBJ = () => ({ pt: { x: .5, y: .5 }, track: null, cut: false, invert: false, glow: false, glowColor: '#ffd400', glowSize: 14, reframe: false });
 const AUD = () => ({ volume: 1, fadeIn: 0, fadeOut: 0, voice: 'none', denoise: false, isolate: false, normalize: false, pitch: true, beats: null });
 const TXT = () => ({
   text: 'Texto predeterminado', font: 'system-ui', size: 56, color: '#ffffff', bold: false, italic: false, underline: false,
   align: 'center', ls: 0, lh: 1.2, strokeOn: false, stroke: '#000000', strokeW: 6, bgOn: false, bg: '#000000', bgA: .6, bgR: .2,
-  shadowOn: false, shadow: '#000000', glowOn: false, glow: '#00e5ff', karaoke: false, hl: '#ffd400', words: null, wrap: false, maxW: .85
+  shadowOn: false, shadow: '#000000', glowOn: false, glow: '#00e5ff', karaoke: false, hl: '#ffd400', words: null, wrap: false, maxW: .85,
+  gradOn: false, grad2: '#ff2a8a', arc: 0, shape: null, squash: .35
 });
 
 /* ---------- Pistas ---------- */
@@ -265,27 +287,51 @@ function trimToPlayhead(side) {
   }
   afterChange();
 }
-function del(id = S.sel) {
+function del(id) {
   if (S.selTrans && !id) { const c = clipById(S.selTrans); if (c) { commit(); c.trans = null; S.selTrans = null; afterChange(); } return; }
-  const c = clipById(id); if (!c) return toast('Selecciona un clip');
-  if (trackById(c.trackId)?.lock) return toast('La pista está bloqueada');
-  commit(); S.clips.splice(S.clips.indexOf(c), 1); S.sel = null; afterChange();
+  const ids = id ? [id] : selIds(); if (!ids.length) return toast('Selecciona un clip');
+  const list = ids.map(clipById).filter(c => c && !trackById(c.trackId)?.lock);
+  if (!list.length) return toast('La pista está bloqueada');
+  commit(); S.clips = S.clips.filter(c => !list.includes(c)); S.sel = null; S.msel = []; afterChange();
+  if (list.length > 1) toast(`${list.length} clips eliminados`);
 }
 function duplicate() {
-  const c = S.sel && clipById(S.sel); if (!c) return toast('Selecciona un clip');
-  commit(); const b = JSON.parse(JSON.stringify(c, CLEAN)); b.id = uid(); b.trans = null;
-  if (c.trackId === 'main') { S.clips.splice(S.clips.indexOf(c) + 1, 0, b); if (!S.magnet) { b.start = endOf(c); } }
-  else { b.start = endOf(c); S.clips.push(b); placeClip(b, c.trackId); }
-  S.sel = b.id; afterChange();
+  const list = selIds().map(clipById).filter(Boolean); if (!list.length) return toast('Selecciona un clip');
+  commit(); const news = [];
+  for (const c of list) {
+    const b = JSON.parse(JSON.stringify(c, CLEAN)); b.id = uid(); b.trans = null; news.push(b.id);
+    if (c.trackId === 'main') { S.clips.splice(S.clips.indexOf(c) + 1, 0, b); if (!S.magnet) b.start = endOf(c); }
+    else { b.start = endOf(c); S.clips.push(b); placeClip(b, c.trackId); }
+  }
+  S.sel = news[news.length - 1]; S.msel = news.length > 1 ? news : []; afterChange();
 }
-function copySel() { const c = S.sel && clipById(S.sel); if (!c) return; S.clipboard = JSON.stringify(c, CLEAN); toast('Copiado'); }
+/* El portapapeles guarda varios clips con su posición relativa */
+function copySel() {
+  const list = selIds().map(clipById).filter(Boolean); if (!list.length) return;
+  const t0 = Math.min(...list.map(c => c.start));
+  S.clipboard = JSON.stringify(list.map(c => ({ ...JSON.parse(JSON.stringify(c, CLEAN)), _rel: c.start - t0 })));
+  toast(list.length > 1 ? `${list.length} clips copiados` : 'Copiado');
+}
 function cutSel() { copySel(); del(); }
 function paste() {
   if (!S.clipboard) return; commit();
-  const b = JSON.parse(S.clipboard); b.id = uid(); b.trans = null; b.start = S.t;
-  if (b.trackId === 'main') { const ms = mains(); const idx = ms.findIndex(c => S.t < c.start + dur(c) / 2); insertMain(b, idx < 0 ? null : idx); if (!S.magnet) sortMainByStart(); }
-  else { S.clips.push(b); placeClip(b, b.trackId); }
-  S.sel = b.id; afterChange();
+  let arr = JSON.parse(S.clipboard); if (!Array.isArray(arr)) arr = [arr];
+  const news = [];
+  for (const raw of arr) {
+    const b = { ...raw }; const rel = b._rel || 0; delete b._rel; b.id = uid(); b.trans = null; b.start = S.t + rel; news.push(b.id);
+    if (b.trackId === 'main') { const ms = mains(); const idx = ms.findIndex(c => b.start < c.start + dur(c) / 2); insertMain(b, idx < 0 ? null : idx); if (!S.magnet) sortMainByStart(); }
+    else { S.clips.push(b); placeClip(b, b.trackId); }
+  }
+  S.sel = news[news.length - 1]; S.msel = news.length > 1 ? news : []; afterChange();
+}
+function selectAll() { S.msel = S.clips.map(c => c.id); S.sel = S.msel[S.msel.length - 1] || null; S.selTrans = null; renderTL(); renderProps(); renderMbar(); updTools(); invalidate(); toast(`${S.msel.length} clips seleccionados`); }
+/* Mover varios clips a la vez (los de la pista principal magnética se reordenan solos) */
+function moveSelectionTo(t) {
+  const list = selIds().map(clipById).filter(c => c && !(c.trackId === 'main' && S.magnet));
+  if (!list.length) return;
+  commit(); const t0 = Math.min(...list.map(c => c.start));
+  list.forEach(c => { c.start = Math.max(0, t + c.start - t0); if (c.trackId !== 'main' && !isFree(c.trackId, c.start, endOf(c), c.id)) placeClip(c, c.trackId); });
+  afterChange();
 }
 function extractAudio(c = S.sel && clipById(S.sel)) {
   if (!c || c.kind !== 'video') return toast('Selecciona un clip de video');
@@ -334,6 +380,8 @@ function replaceMedia(c, m) {
 /* Tras cualquier cambio de estructura */
 function afterChange() {
   if (S.sel && !clipById(S.sel)) S.sel = null;
+  S.msel = S.msel.filter(clipById); if (S.msel.length < 2) S.msel = [];
+  if (S.cropMode && S.cropMode !== S.sel) S.cropMode = null;
   if (S.selTrans) { const b = clipById(S.selTrans); if (!b || !b.trans) S.selTrans = null; }
   cleanupTracks(); layout();
   S.t = Math.min(S.t, total());

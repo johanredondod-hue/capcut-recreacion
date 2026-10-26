@@ -98,7 +98,9 @@ const ICONS = {
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
   ratio: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 9v4M17 15h-4M17 15v-4"/>',
   canvas: '<rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
-  overlay: '<rect x="2" y="7" width="14" height="14" rx="2"/><path d="M8 3h12a2 2 0 0 1 2 2v12"/>'
+  overlay: '<rect x="2" y="7" width="14" height="14" rx="2"/><path d="M8 3h12a2 2 0 0 1 2 2v12"/>',
+  reverse: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M14 9l-3 3 3 3"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>'
 };
 const FILLED = new Set(['play', 'pause', 'record', 'crown', 'stop']);
 const ic = (n, cls = '') => `<svg class="i ${FILLED.has(n) ? 'fill ' : ''}${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
