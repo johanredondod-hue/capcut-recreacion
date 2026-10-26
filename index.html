@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0e10">
+<meta name="description" content="Recreación de CapCut para un proyecto universitario: editor de video en el navegador.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>CapCut Recreación</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- =================== PANTALLA DE INICIO =================== -->
+<div id="home" class="home">
+  <aside class="home-side">
+    <div class="logo"><span class="logo-mark" data-icon="cut"></span><span>CapCut <small>Recreación</small></span></div>
+    <nav class="home-nav" id="homeNav">
+      <button class="on" data-hnav="home"><span data-icon="home"></span>Inicio</button>
+      <button data-hnav="templates"><span data-icon="template"></span>Plantillas</button>
+    </nav>
+    <div class="home-side-foot">
+      <button class="pro-chip block" data-open-plans><span data-icon="crown"></span>Pro desbloqueado</button>
+    </div>
+  </aside>
+  <main class="home-main" id="homeMain"></main>
+</div>
+
+<!-- =================== EDITOR =================== -->
+<div id="editor" class="editor" hidden>
+  <header class="topbar">
+    <div class="tb-left">
+      <button class="icon-btn m-only" id="mBack" title="Inicio" data-icon="chevL"></button>
+      <button class="menu-btn d-only" id="menuBtn"><span class="logo-mark sm" data-icon="cut"></span>Menú<span data-icon="chev"></span></button>
+      <span class="save-state d-only" id="saveState">Guardado automático</span>
+    </div>
+    <div class="tb-mid"><input class="proj-name" id="projName" aria-label="Nombre del proyecto"></div>
+    <div class="tb-right">
+      <button class="icon-btn d-only" id="btnKeys" title="Atajos de teclado" data-icon="keys"></button>
+      <button class="pro-chip d-only" data-open-plans><span data-icon="crown"></span>Pro</button>
+      <button class="res-chip m-only" id="mRes">1080P</button>
+      <button class="btn primary" id="btnExport"><span data-icon="download"></span><span>Exportar</span></button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- Panel de recursos (izquierda) -->
+    <section class="res-panel sheet" id="resPanel">
+      <div class="sheet-grip m-only"></div>
+      <nav class="res-tabs" id="resTabs"></nav>
+      <div class="res-body">
+        <nav class="res-sub" id="resSub"></nav>
+        <div class="res-content" id="resContent"></div>
+      </div>
+    </section>
+
+    <!-- Reproductor (centro) -->
+    <main class="player">
+      <div class="panel-head d-only"><span>Reproductor</span><span id="resLbl" class="muted"></span></div>
+      <div class="stage" id="stage">
+        <canvas id="cv" width="1280" height="720"></canvas>
+        <div class="empty-msg" id="emptyMsg" hidden><span data-icon="upload"></span>Importa medios y arrástralos a la línea de tiempo</div>
+      </div>
+      <div class="pctrl">
+        <div class="tc"><b id="tCur">00:00:00:00</b><span class="d-only"> / <span id="tTot">00:00:00:00</span></span></div>
+        <div class="pc-mid">
+          <button class="icon-btn m-only" id="mUndo" data-icon="undo" title="Deshacer"></button>
+          <button class="play" id="btnPlay" title="Reproducir (Espacio)"></button>
+          <button class="icon-btn m-only" id="mRedo" data-icon="redo" title="Rehacer"></button>
+        </div>
+        <div class="pc-right">
+          <button class="icon-btn d-only" id="btnShot" title="Exportar fotograma (PNG)" data-icon="camera"></button>
+          <select class="sel-mini d-only" id="ratioSel" title="Relación de aspecto"></select>
+          <button class="icon-btn" id="btnFull" title="Pantalla completa" data-icon="full"></button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Panel de detalles (derecha) -->
+    <aside class="props sheet" id="props"></aside>
+  </div>
+
+  <div class="resizer d-only" id="resizer" title="Arrastra para cambiar el tamaño"></div>
+
+  <!-- Línea de tiempo -->
+  <section class="timeline" id="timeline">
+    <div class="tl-tools d-only" id="tlTools"></div>
+    <div class="tl-grid" id="tlGrid">
+      <div class="tl-corner"></div>
+      <div class="tl-ruler-wrap" id="rulerWrap"><canvas id="ruler"></canvas><div class="ph-knob d-only" id="phKnob"></div></div>
+      <div class="tl-heads" id="tlHeads"><div id="tlHeadsInner"></div></div>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl-inner" id="tlInner">
+          <div id="tlRows"></div>
+          <div class="snapline" id="snapline"></div>
+          <div class="playhead d-only" id="playhead"></div>
+        </div>
+      </div>
+      <div class="center-ph m-only"></div>
+    </div>
+  </section>
+
+  <nav class="mbar m-only" id="mbar"></nav>
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+</div>
+
+<!-- =================== MODALES =================== -->
+<div class="modal" id="exportModal" hidden><div class="dialog wide" id="exportBody"></div></div>
+<div class="modal" id="plansModal" hidden><div class="dialog wide" id="plansBody"></div></div>
+<div class="modal" id="keysModal" hidden>
+  <div class="dialog">
+    <h2>Atajos de teclado</h2>
+    <div class="shortcuts" id="keysList"></div>
+    <div class="actions"><button class="btn" data-close>Cerrar</button></div>
+  </div>
+</div>
+<div class="menu-pop" id="menuPop" hidden></div>
+<div class="ctx" id="ctxMenu" hidden></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" multiple accept="video/*,image/*,audio/*" hidden>
+<input type="file" id="srtIn" accept=".srt,text/plain" hidden>
+<input type="file" id="replaceIn" accept="video/*,image/*" hidden>
+
+<script src="js/util.js"></script>
+<script src="js/catalog.js"></script>
+<script src="js/state.js"></script>
+<script src="js/media.js"></script>
+<script src="js/render.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/export.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
