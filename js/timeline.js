@@ -53,7 +53,11 @@ function trackRow(tr) {
   const row = document.createElement('div');
   row.className = 'trow' + (tr.main ? ' main' : ''); row.dataset.track = tr.id; row.style.height = trackH(tr) + 'px';
   const list = S.clips.filter(c => c.trackId === tr.id);
-  if (!list.length && tr.main) row.innerHTML = `<div class="track-empty">${ic('upload')} Arrastra videos o imágenes aquí</div>`;
+  if (!list.length && tr.main) row.innerHTML = `<div class="track-empty">${ic('upload')} ${isMobile() ? 'Toca + para añadir videos o fotos' : 'Arrastra videos o imágenes aquí'}</div>`;
+  if (tr.main) {                                            // botón «+» al final de la pista principal (como en CapCut)
+    const end = list.reduce((x, c) => Math.max(x, endOf(c)), 0);
+    row.insertAdjacentHTML('beforeend', `<button class="add-end" data-addmedia title="Añadir medios" style="left:${list.length ? end * S.zoom + 12 : (isMobile() ? 12 : 300)}px">${ic('plus')}</button>`);
+  }
   for (const c of list) row.appendChild(clipEl(c, tr));
   if (tr.main && S.magnet) {
     const ms = list; let h = '';
@@ -422,6 +426,7 @@ function initTimeline() {
   tl.scroll.addEventListener('pointerdown', e => {
     if (e.button > 0) return;
     hideMenus();
+    if (e.target.closest('[data-addmedia]')) { e.preventDefault(); openImport(); return; }
     const j = e.target.closest('[data-junction]'); if (j) { selectTrans(j.dataset.junction); return; }
     const cl = e.target.closest('.clip'); if (cl) { startClipDrag(e, cl); return; }
     if (e.pointerType === 'mouse') { startMarquee(e); }

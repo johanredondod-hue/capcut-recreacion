@@ -1,6 +1,6 @@
-/* Service worker: guarda la app para que abra sin conexión y se pueda instalar.
+﻿/* Service worker: guarda la app para que abra sin conexiÃ³n y se pueda instalar.
    Solo funciona cuando la app se sirve por http(s) (no con file://). */
-const CACHE = 'capcut-recreacion-v2';
+const CACHE = 'capcut-recreacion-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/util.js', './js/catalog.js', './js/state.js', './js/media.js', './js/render.js', './js/timeline.js',
@@ -11,7 +11,7 @@ self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c =>
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-/* Archivos propios: primero red (para ver cambios) y si no hay conexión, la caché. */
+/* Archivos propios: primero red (para ver cambios) y si no hay conexiÃ³n, la cachÃ©. */
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;

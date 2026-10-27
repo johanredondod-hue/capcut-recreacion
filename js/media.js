@@ -144,32 +144,57 @@ function makeThumb(src, w, h, tw = 192, th = 108) {
   const k = Math.max(tw / w, th / h); x.drawImage(src, (tw - w * k) / 2, (th - h * k) / 2, w * k, h * k);
   return c.toDataURL('image/jpeg', .7);
 }
+/* Trabajo pesado en segundo plano, de uno en uno y cuando el navegador está libre
+   (tiras de fotogramas y formas de onda). Así importar no se bloquea. */
+const BG = { q: [], busy: false };
+function bgTask(fn) { BG.q.push(fn); runBG(); }
+async function runBG() {
+  if (BG.busy) return; BG.busy = true;
+  while (BG.q.length) {
+    await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r, { timeout: 600 }) : setTimeout(r, 30)));
+    try { await BG.q.shift()(); } catch (e) { console.warn(e); }
+  }
+  BG.busy = false;
+}
+/* Las fotos del celular (12+ MP) se reducen a un tamaño útil: se dibujan mucho más rápido */
+const MAX_IMG = () => isMobile() ? 2048 : 3840;
+async function loadImage(m) {
+  try {
+    let bmp = await createImageBitmap(m.blob);                 // decodifica fuera del hilo principal y respeta la orientación de la foto
+    const k = Math.min(1, MAX_IMG() / Math.max(bmp.width, bmp.height));
+    if (k < 1) { const small = await createImageBitmap(bmp, { resizeWidth: Math.round(bmp.width * k), resizeHeight: Math.round(bmp.height * k), resizeQuality: 'high' }); bmp.close(); bmp = small; }
+    return bmp;
+  } catch (e) {                                                  // navegadores sin createImageBitmap
+    return new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = m.url; });
+  }
+}
 function prepMedia(m) {
   if (m.type === 'image') {
-    const img = new Image();
-    img.onload = () => { m.img = img; m.w = img.naturalWidth; m.h = img.naturalHeight; m.duration = Infinity; if (!m.thumb) m.thumb = makeThumb(img, m.w, m.h); setReady(m); };
-    img.onerror = () => toast('No se pudo leer ' + m.name);
-    img.src = m.url;
+    loadImage(m).then(img => {
+      m.img = img; m.w = img.width || img.naturalWidth; m.h = img.height || img.naturalHeight; m.duration = Infinity;
+      if (!m.thumb) m.thumb = makeThumb(img, m.w, m.h); setReady(m);
+    }).catch(() => { m.failed = true; renderLibSoon(); toast('No se pudo leer ' + m.name + ' (formato no compatible)'); });
   } else if (m.type === 'video') {
     const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.playsInline = true;
-    v.addEventListener('error', () => toast('Formato de video no compatible: ' + m.name), { once: true });
+    v.addEventListener('error', () => { m.failed = true; renderLibSoon(); toast('Formato de video no compatible: ' + m.name); }, { once: true });
     const once = ev => new Promise(r => v.addEventListener(ev, r, { once: true }));
     (async () => {
       const meta = once('loadedmetadata'); v.src = m.url; await meta;
       m.w = v.videoWidth; m.h = v.videoHeight; m.duration = await realDuration(v);
       if (!(m.duration > 0)) return toast('No se pudo leer la duración de ' + m.name);
-      if (m.thumb && m.strip) { setReady(m); v.removeAttribute('src'); v.load(); return; }
-      const sk = once('seeked'); v.currentTime = Math.min(.3, m.duration / 3); await sk;
-      if (!m.thumb) m.thumb = makeThumb(v, m.w, m.h);
-      setReady(m); buildStrip(m, v);
+      setReady(m);                                               // ya se puede usar: la miniatura llega enseguida
+      if (m.thumb && m.strip) { v.removeAttribute('src'); v.load(); return; }
+      const sk = once('seeked'); v.currentTime = Math.min(.1, m.duration / 3); await Promise.race([sk, sleep(1500)]);
+      if (!m.thumb) { try { m.thumb = makeThumb(v, m.w, m.h); } catch (e) { } renderLibSoon(); renderTLSoon(); }
+      bgTask(() => buildStrip(m, v));
     })();
-    if (!m.peaks) analyzeAudio(m);
+    if (!m.peaks) bgTask(() => analyzeAudio(m));
   } else {
     const a = new Audio(); a.preload = 'metadata';
     a.addEventListener('loadedmetadata', async () => { m.duration = await realDuration(a); if (m.duration > 0) setReady(m); else toast('No se pudo leer la duración de ' + m.name); }, { once: true });
-    a.addEventListener('error', () => toast('Formato de audio no compatible: ' + m.name), { once: true });
+    a.addEventListener('error', () => { m.failed = true; renderLibSoon(); toast('Formato de audio no compatible: ' + m.name); }, { once: true });
     a.src = m.url;
-    if (!m.peaks) analyzeAudio(m);
+    if (!m.peaks) bgTask(() => analyzeAudio(m));
   }
 }
 /* Los WebM grabados en el navegador no traen duración (Infinity): se fuerza a calcularla */
@@ -184,11 +209,11 @@ function realDuration(el) {
 }
 /* Tira de fotogramas para la línea de tiempo (se genera una sola vez y se guarda) */
 async function buildStrip(m, v) {
-  if (m.strip) return;
-  const N = clamp(Math.ceil(m.duration / 1.5), 4, 48), fh = 54, fw = Math.round(fh * clamp(m.w / m.h, .5, 2.4));
+  if (m.strip || !S.media.includes(m)) return;
+  const N = clamp(Math.ceil(m.duration / 2), 4, 24), fh = 54, fw = Math.round(fh * clamp(m.w / m.h, .5, 2.4));
   const c = document.createElement('canvas'); c.width = fw * N; c.height = fh; const x = c.getContext('2d');
   for (let i = 0; i < N; i++) {
-    await new Promise(r => { const done = () => { v.removeEventListener('seeked', done); r(); }; v.addEventListener('seeked', done); v.currentTime = (i + .5) * m.duration / N; setTimeout(done, 1500); });
+    await new Promise(r => { const done = () => { v.removeEventListener('seeked', done); r(); }; v.addEventListener('seeked', done); v.currentTime = (i + .5) * m.duration / N; setTimeout(done, 800); });
     try { x.drawImage(v, i * fw, 0, fw, fh); } catch (e) { }
   }
   m.strip = c.toDataURL('image/jpeg', .6); m.stripN = N; m.stripFW = fw;
@@ -198,7 +223,8 @@ async function buildStrip(m, v) {
 /* Forma de onda (picos) para audio y videos con sonido */
 async function analyzeAudio(m) {
   try {
-    if (!m.blob || m.blob.size > 300e6) { m.hasAudio = m.type === 'audio'; return; }
+    if (!S.media.includes(m)) return;
+    if (!m.blob || m.blob.size > (isMobile() ? 120e6 : 300e6)) { m.hasAudio = m.type === 'audio' || m.type === 'video'; return; }
     const ab = await m.blob.arrayBuffer();
     const buf = await new OfflineAudioContext(1, 44100, 44100).decodeAudioData(ab);
     const rate = 60, n = Math.max(1, Math.ceil(buf.duration * rate)), step = buf.sampleRate / rate, peaks = new Float32Array(n);
@@ -221,14 +247,66 @@ function waveImage(peaks, color) {
   for (let i = 0; i < w; i++) { const p = peaks[Math.floor(i / w * peaks.length)] || 0, bh = Math.max(1, p * h * .92); x.fillRect(i, (h - bh) / 2, 1, bh); }
   return c.toDataURL('image/png');
 }
+/* Tipo del archivo; si el celular no lo indica, se deduce por la extensión */
+const EXT_TYPE = { mp4: 'video', mov: 'video', m4v: 'video', webm: 'video', mkv: 'video', '3gp': 'video', avi: 'video', jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image', heic: 'image', heif: 'image', avif: 'image', bmp: 'image', mp3: 'audio', wav: 'audio', m4a: 'audio', aac: 'audio', ogg: 'audio', opus: 'audio', flac: 'audio', amr: 'audio' };
+function fileType(f) {
+  const t = (f.type || '').split('/')[0];
+  if (t === 'video' || t === 'audio' || t === 'image') return t;
+  return EXT_TYPE[(f.name.split('.').pop() || '').toLowerCase()] || null;
+}
 function importFiles(files, opts = {}) {
-  const list = [...files].filter(f => /^(video|audio|image)\//.test(f.type));
-  if (!list.length) return toast('Formato no compatible');
-  const added = list.map(f => registerMedia({ name: f.name, type: f.type.split('/')[0], folder: 'local' }, f));
-  toast(`${added.length} archivo(s) importado(s)`);
-  if (opts.addToTimeline) added.forEach(m => m.readyP.then(() => addMediaClip(m, opts)));
+  const all = [...files], list = all.filter(fileType);
+  if (!list.length) { toast('Formato no compatible'); return []; }
+  if (list.length < all.length) toast(`${all.length - list.length} archivo(s) no compatibles se omitieron`);
+  const added = list.map(f => registerMedia({ name: f.name, type: fileType(f), folder: 'local' }, f));
+  if (opts.addToTimeline) addInOrder(added, opts);
+  else toast(`${added.length} archivo(s) importado(s)`);
   renderLib();
   return added;
+}
+/* Añade los archivos a la línea de tiempo en el mismo orden en que se eligieron.
+   Cada uno entra en cuanto está listo (no hace falta esperar a los demás). */
+async function addInOrder(list, opts = {}) {
+  let n = 0;
+  for (const m of list) {
+    const ok = await Promise.race([m.readyP.then(() => true), new Promise(r => { const iv = setInterval(() => { if (m.failed) { clearInterval(iv); r(false); } }, 200); })]);
+    if (!ok) continue;
+    if (m.type === 'audio') addMediaClip(m, { start: opts.start ?? S.t });
+    else addMediaClip(m, opts.start != null && opts.overlay ? { start: opts.start, overlay: true } : {});
+    n++;
+    if (list.length > 1) toast(`Añadiendo ${n} de ${list.length}…`);
+  }
+  if (n) { toast(n === 1 ? 'Añadido a la línea de tiempo' : `${n} archivos añadidos a la línea de tiempo`); if (isMobile()) closeSheets(); }
+}
+
+/* ---------- Menú «Añadir medios»: tomar foto, grabar video, fototeca, archivos ---------- */
+const IMPORT = { toTimeline: true };
+const isTouch = () => matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+function openImport(o = {}) {
+  IMPORT.toTimeline = o.toTimeline ?? true; IMPORT.start = o.start; IMPORT.overlay = o.overlay;
+  const touch = isTouch(), opts = [
+    touch && ['photo', 'camera', 'Tomar foto', 'Con la cámara'],
+    touch && ['video', 'film', 'Grabar video', 'Con la cámara'],
+    ['gallery', 'media', touch ? 'Fototeca' : 'Fotos y videos', touch ? 'Galería del teléfono' : 'Imágenes y videos'],
+    ['files', 'folder', 'Archivos', touch ? 'Drive, descargas, USB…' : 'Cualquier archivo compatible'],
+    ['audio', 'audio', 'Audio', 'Música o grabaciones'],
+    ['avideo', 'vol', 'Audio de un video', 'Solo el sonido']
+  ].filter(Boolean);
+  $('#importBody').innerHTML = `<div class="sheet-grip"></div><h2>Añadir medios <button class="icon-btn" data-close>${ic('close')}</button></h2>
+    <div class="imp-grid">${opts.map(([id, i, n, s]) => `<button class="imp-opt" data-imp="${id}"><span class="imp-ic">${ic(i)}</span><b>${n}</b><small>${s}</small></button>`).join('')}</div>
+    <label class="row2 imp-tl"><span class="muted">Añadir directo a la línea de tiempo</span><span style="display:flex;justify-content:flex-end"><span class="switch"><input type="checkbox" id="impTl"${IMPORT.toTimeline ? ' checked' : ''}><span></span></span></span></label>`;
+  $('#importSheet').hidden = false;
+}
+function onImportPick(id) {
+  IMPORT.toTimeline = $('#impTl').checked;
+  const inp = $({ photo: '#inPhoto', video: '#inVideo', gallery: '#inGallery', files: '#inFiles', audio: '#inAudio', avideo: '#avIn' }[id]);
+  $('#importSheet').hidden = true;
+  inp.value = ''; inp.click();                       // debe ir dentro del mismo toque para que el navegador lo permita
+}
+function handleImported(files) {
+  if (!files || !files.length) return;
+  if (S.view !== 'editor') newProject();
+  importFiles(files, IMPORT.toTimeline ? { addToTimeline: true, start: IMPORT.start, overlay: IMPORT.overlay } : {});
 }
 
 /* ---------- Biblioteca: fondos generados ---------- */

@@ -159,7 +159,21 @@ input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-
 .card .add svg.i{width:14px;height:14px}
 .card:hover .add{display:grid}
 .card:hover{outline:1px solid #4a4a52}
-.card.loading .th::after{content:'Cargando…';font-size:11px}
+.card.loading .th::after{content:'';width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:var(--accent);animation:spin .8s linear infinite}
+.card.failed .th::after{content:'No compatible';font-size:11px;color:var(--danger)}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Menú «Añadir medios» */
+.imp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.imp-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px;border-radius:12px;background:var(--panel2);text-align:left;min-width:0}
+.imp-opt:hover,.imp-opt:active{background:var(--panel3)}
+.imp-opt b{font-weight:600}
+.imp-opt small{color:var(--muted);font-size:11px;line-height:1.3}
+.imp-ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#0b5f68,#173a7a)}
+.imp-ic svg.i{width:20px;height:20px}
+.imp-tl{margin:14px 0 0;grid-template-columns:1fr auto}
+.add-end{position:absolute;top:50%;width:40px;height:40px;margin-top:-20px;border-radius:8px;background:#fff;color:#111;display:grid;place-items:center;z-index:6;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.add-end svg.i{width:20px;height:20px;stroke-width:2.4}
+@media (min-width:821px){.imp-modal .sheet-grip{display:none}}
 .tile{position:relative;border-radius:8px;background:var(--panel2);padding:0 0 6px;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;overflow:hidden;min-width:0}
 .tile:hover{outline:1px solid var(--accent);color:var(--text)}
 .tile.on{outline:2px solid var(--accent);color:var(--text)}
@@ -402,4 +416,7 @@ kbd{background:var(--panel3);border-radius:4px;padding:1px 6px;font-size:11px;fo
   .mbar button.back{min-width:44px;border-right:1px solid var(--line);border-radius:0}
   .mbar button.danger{color:var(--danger)}
   .toast{bottom:90px}
+  .imp-modal{place-items:end center;padding:0}
+  .imp-modal .dialog{width:100%;max-width:none;border-radius:18px 18px 0 0;padding:6px 16px calc(18px + env(safe-area-inset-bottom));border-bottom:0}
+  .imp-modal .dialog h2{margin-top:6px}
 }

@@ -61,7 +61,7 @@
       <div class="panel-head d-only"><span>Reproductor</span><span id="resLbl" class="muted"></span></div>
       <div class="stage" id="stage">
         <canvas id="cv" width="1280" height="720"></canvas>
-        <div class="empty-msg" id="emptyMsg" hidden><span data-icon="upload"></span>Importa medios y arrástralos a la línea de tiempo</div>
+        <div class="empty-msg" id="emptyMsg" hidden><span data-icon="plus"></span>Toca aquí para añadir videos o fotos</div>
       </div>
       <div class="pctrl">
         <div class="tc"><b id="tCur">00:00:00:00</b><span class="d-only"> / <span id="tTot">00:00:00:00</span></span></div>
@@ -123,6 +123,13 @@
 <input type="file" id="srtIn" accept=".srt,text/plain" hidden>
 <input type="file" id="replaceIn" accept="video/*,image/*" hidden>
 <input type="file" id="avIn" accept="video/*,audio/*" multiple hidden>
+<!-- Entradas del menú «Añadir medios» -->
+<input type="file" id="inPhoto" accept="image/*" capture="environment" hidden>
+<input type="file" id="inVideo" accept="video/*" capture="environment" hidden>
+<input type="file" id="inGallery" accept="image/*,video/*" multiple hidden>
+<input type="file" id="inFiles" multiple hidden>
+<input type="file" id="inAudio" accept="audio/*" multiple hidden>
+<div class="modal imp-modal" id="importSheet" hidden><div class="dialog" id="importBody"></div></div>
 
 <script src="js/util.js"></script>
 <script src="js/catalog.js"></script>

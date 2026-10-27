@@ -94,7 +94,8 @@ async function applyTemplate(id, fresh) {
 const mainTrackObj = () => ({ id: 'main', kind: 'video', main: true, mute: false, hide: false, lock: false });
 function resetEditorState() {
   S.playing = false; pauseAllMedia();
-  for (const m of S.media) { (m.pool || []).forEach(el => { el.removeAttribute('src'); el.load(); }); URL.revokeObjectURL(m.url); }
+  for (const m of S.media) { (m.pool || []).forEach(el => { el.removeAttribute('src'); el.load(); }); URL.revokeObjectURL(m.url); if (m.img && m.img.close) m.img.close(); }
+  BG.q.length = 0;
   Object.assign(S, { media: [], tracks: [mainTrackObj()], clips: [], markers: [], t: 0, sel: null, selTrans: null, msel: [], multiMode: false, cropMode: null, cropRatio: 'free', cover: null, magnet: true, bgMode: 'color', bg: '#000000', bgBlur: 24, ratio: '16:9', fps: 30, zoom: 60, ptab: 0, psub: {} });
   S._pickObj = null; S._pick = null;
   HIST.undo = []; HIST.redo = []; KEYC.clear(); OBJM.clear();
@@ -209,7 +210,7 @@ function initHome() {
   $('#homeMain').addEventListener('click', async e => {
     const t = e.target.closest('#hCreate,[data-quick],[data-open],[data-pmenu],[data-tpl]'); if (!t) return;
     if (S._building) return toast('Un momento: preparando el proyecto de ejemplo…');
-    if (t.id === 'hCreate') return newProject();
+    if (t.id === 'hCreate') { newProject(); return openImport(); }       // como en CapCut: al crear, se elige qué importar
     if (t.dataset.tpl) { newProject(TEMPLATES.find(x => x.id === t.dataset.tpl).name); return applyTemplate(t.dataset.tpl, true); }
     if (t.dataset.quick) {
       const q = t.dataset.quick;
@@ -217,7 +218,7 @@ function initHome() {
       newProject();
       const go = { captions: ['captions', 'auto'], rmbg: ['media', 'local'], record: ['audio', 'record'], import: ['media', 'local'], effects: ['effects', 'all'] }[q];
       S.tab = go[0]; S.sub[go[0]] = go[1]; renderResTabs(); renderLib();
-      if (q === 'import') $('#fileIn').click();
+      if (q === 'import') return openImport();
       if (q === 'rmbg') toast('Importa un video con una persona, selecciónalo y activa «Quitar fondo» en Detalles', 5000);
       if (isMobile()) openSheet('res');
       return;

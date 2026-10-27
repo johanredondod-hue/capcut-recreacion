@@ -23,7 +23,7 @@ const proB = p => p ? '<span class="pro">Pro</span>' : '';
 const voiceOpts = () => TTS_VOICES.map(([v, n]) => `<option value="${v}"${v === S.ttsVoice ? ' selected' : ''}>${n}</option>`).join('');
 function mediaCard(m) {
   const used = S.clips.some(c => c.mediaId === m.id), d = m.type === 'image' ? '' : fmtDur(m.duration);
-  return `<div class="card${m.ready ? '' : ' loading'}" draggable="true" data-mid="${m.id}" title="${esc(m.name)}">
+  return `<div class="card${m.failed ? ' failed' : m.ready ? '' : ' loading'}" draggable="true" data-mid="${m.id}" title="${esc(m.name)}">
     <div class="th" style="${m.thumb ? `background-image:url(${m.thumb})` : ''}">${m.type === 'audio' ? ic('audio') : ''}</div>
     ${d ? `<span class="badge">${d}</span>` : ''}${used ? '<span class="used">Añadido</span>' : ''}
     <button class="add" data-add="${m.id}" title="Añadir a la línea de tiempo">${ic('plus')}</button>
@@ -500,7 +500,7 @@ function onPropClick(e) {
 }
 
 /* ============ MÓVIL: barra inferior y hojas ============ */
-const MBAR_MAIN = [['edit', 'Editar', 'cut'], ['t:audio', 'Audio', 'audio'], ['t:text', 'Texto', 'text'], ['t:stickers', 'Stickers', 'sticker'], ['t:media', 'Superposición', 'overlay'], ['t:effects', 'Efectos', 'effects'], ['t:transitions', 'Transiciones', 'transitions'], ['t:captions', 'Subtítulos', 'captions'], ['tts', 'Texto a voz', 'vol'], ['t:filters', 'Filtros', 'filters'], ['t:adjust', 'Ajuste', 'adjust'], ['multi', 'Selección múltiple', 'copy'], ['proj:ratio', 'Formato', 'ratio'], ['proj:canvas', 'Lienzo', 'canvas'], ['t:templates', 'Plantillas', 'template'], ['rec', 'Grabar', 'mic']];
+const MBAR_MAIN = [['import', 'Importar', 'plus'], ['edit', 'Editar', 'cut'], ['t:audio', 'Audio', 'audio'], ['t:text', 'Texto', 'text'], ['t:stickers', 'Stickers', 'sticker'], ['t:media', 'Superposición', 'overlay'], ['t:effects', 'Efectos', 'effects'], ['t:transitions', 'Transiciones', 'transitions'], ['t:captions', 'Subtítulos', 'captions'], ['tts', 'Texto a voz', 'vol'], ['t:filters', 'Filtros', 'filters'], ['t:adjust', 'Ajuste', 'adjust'], ['multi', 'Selección múltiple', 'copy'], ['proj:ratio', 'Formato', 'ratio'], ['proj:canvas', 'Lienzo', 'canvas'], ['t:templates', 'Plantillas', 'template'], ['rec', 'Grabar', 'mic']];
 function renderMbar() {
   const bar = $('#mbar'); if (!bar) return;
   const c = S.sel && clipById(S.sel); let items;
@@ -529,6 +529,7 @@ function onMbar(a) {
   if (a.startsWith('proj:')) { selectClip(null); openPropsTab('Proyecto', a.slice(5)); return; }
   if (a.startsWith('p:')) { const [tab, sec] = a.slice(2).split('#'); openPropsTab(tab || null, sec); return; }
   switch (a) {
+    case 'import': return openImport();
     case 'split': return split();
     case 'dup': return duplicate();
     case 'del': S.multiMode = false; return del();
@@ -567,7 +568,7 @@ function initPanels() {
     if (!t) return;
     const done = () => { if (isMobile()) closeSheets(); };
     const d = t.dataset;
-    if (d.import) { e.preventDefault(); const fi = $('#fileIn'); fi.accept = d.import; fi.click(); return; }
+    if (d.import) { e.preventDefault(); openImport({ toTimeline: isMobile() || !S.clips.length }); return; }
     if (d.add) { addMediaClip(med(d.add), {}); done(); return; }
     if (d.lib) { const [k, a, b] = d.lib.split(':'); const names = { color: 'Color', grad: 'Degradado', pat: (LIB_PATTERNS.find(p => p[0] === a) || [])[1] }; await addLibraryBg(k === 'pat' ? 'pattern' : k, a, b, names[k] || 'Fondo'); done(); return; }
     if (d.preview) { const [k, id] = d.preview.split(':'); previewLib(k, id, t); return; }

@@ -105,6 +105,7 @@ function initCanvas() {
       if (c) pickObjectAt(c, px, py); return;
     }
     if (S.cropMode) { const c = clipById(S.cropMode); if (c && cropPointer(e, c)) return; }
+    if (!S.clips.length) { openImport(); return; }            // reproductor vacío: un toque abre «Añadir medios»
     if (S._pick) {                                      // cuentagotas del croma
       const c = clipById(S._pick); S._pick = null; cv.classList.remove('pick');
       S._noSel = true; const ch = c.chroma.on; c.chroma.on = false; draw(); const d = ctx.getImageData(px | 0, py | 0, 1, 1).data; c.chroma.on = ch; S._noSel = false;
@@ -153,7 +154,7 @@ function openMainMenu() {
     ['Nuevo proyecto', '', () => { saveProject(); newProject(); }],
     ['Volver a Inicio', '', () => showHome()],
     ['Guardar', 'Ctrl+S', () => saveProject(true)],
-    ['Importar medios…', '', () => $('#fileIn').click()], '-',
+    ['Importar medios…', '', () => openImport()], '-',
     ['Deshacer', 'Ctrl+Z', undo, !HIST.undo.length], ['Rehacer', 'Ctrl+Y', redo, !HIST.redo.length], '-',
     ['Exportar…', 'Ctrl+E', openExport],
     ['Exportar fotograma (PNG)', '', () => exportFrame()],
@@ -197,7 +198,9 @@ function bindApp() {
   // Archivos
   $('#fileIn').onchange = e => { if (S.view !== 'editor') newProject(); importFiles(e.target.files); e.target.value = ''; };
   $('#srtIn').onchange = e => { if (e.target.files[0]) importSRT(e.target.files[0]); e.target.value = ''; };
-  $('#avIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) audioFromVideoFiles(f); };
+  $('#avIn').onchange = e => { const f = [...e.target.files]; e.target.value = ''; if (!f.length) return; if (S.view !== 'editor') newProject(); audioFromVideoFiles(f); };
+  ['#inPhoto', '#inVideo', '#inGallery', '#inFiles', '#inAudio'].forEach(id => { $(id).onchange = e => { const f = [...e.target.files]; e.target.value = ''; handleImported(f); }; });
+  $('#importSheet').addEventListener('click', e => { const b = e.target.closest('[data-imp]'); if (b) onImportPick(b.dataset.imp); });
   $('#replaceIn').onchange = async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     const m = registerMedia({ name: f.name, type: f.type.split('/')[0], folder: 'local' }, f); await m.readyP;
