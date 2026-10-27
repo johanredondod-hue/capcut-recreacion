@@ -109,7 +109,7 @@ function newProject(name) {
 function showEditor() {
   S.view = 'editor'; $('#home').hidden = true; $('#editor').hidden = false;
   $('#projName').value = S.name; $('#ratioSel').value = S.ratio;
-  setCanvasSize(); layout(); renderResTabs(); renderLib(); renderProps(); renderMbar(); updTools(); updPlayBtn();
+  setCanvasSize(); layout(); renderResTabs(); renderLib(); renderProps(); renderMbar(); updTools(); updPlayBtn(); renderTL();
   requestAnimationFrame(() => { fitCanvas(); renderTL(); fitZoom(); invalidate(); });
 }
 async function showHome() {
